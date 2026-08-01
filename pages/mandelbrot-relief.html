@@ -82,8 +82,8 @@
           points.push({
             x: turnedX * perspective,
             y: tiltedY * perspective,
-            tone: iterations === 160 ? 9 : 46 + Math.round(iterations * 1.25),
-            alpha: iterations === 160 ? .18 : .38 + iterations / 340,
+            tone: iterations === 160 ? 13 : 118 + Math.round(Math.min(iterations, 88) * 1.35),
+            alpha: iterations === 160 ? .24 : .48 + Math.min(iterations, 110) / 330,
           });
         }
       }
