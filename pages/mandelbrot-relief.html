@@ -117,7 +117,7 @@
     }
 
     function frame() {
-      if (!paused) k += .01;
+      if (!paused) k = (k + .004) % .82;
       draw();
       requestAnimationFrame(frame);
     }
