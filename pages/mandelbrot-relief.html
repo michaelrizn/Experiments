@@ -61,7 +61,7 @@
         float depth = dot(delta, forward);
         float focal = 400.0 / tan(3.14159265 / 6.0);
         float sourceX = 400.0 + focal * dot(delta, right) / depth;
-        float sourceY = 400.0 - focal * dot(delta, up) / depth;
+        float sourceY = 400.0 + focal * dot(delta, up) / depth;
         vec2 pixel = (uOffset + vec2(sourceX, sourceY) * uScale) * uPixelRatio;
 
         gl_Position = vec4(pixel.x / uResolution.x * 2.0 - 1.0, 1.0 - pixel.y / uResolution.y * 2.0, depth / 10000.0 * 2.0 - 1.0, 1.0);
