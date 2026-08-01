@@ -9,8 +9,8 @@
     :root { color-scheme:dark; background:#000; }
     * { box-sizing:border-box; }
     html,body { min-height:100%; margin:0; background:#000; }
-    main { min-height:100vh; display:grid; place-items:center; padding:20px; }
-    canvas { display:block; width:min(100%, 700px); height:auto; aspect-ratio:1; background:#000; touch-action:manipulation; }
+    main { min-height:calc(100dvh - 64px); display:grid; place-items:center; padding:12px; overflow:hidden; }
+    canvas { display:block; width:min(100%, 1100px); height:auto; aspect-ratio:16 / 9; background:#000; touch-action:manipulation; }
   </style>
   <script src="../assets/toolbar.js" defer></script>
 </head>
@@ -22,6 +22,12 @@
     const canvas = document.querySelector("#sketch");
     const ctx = canvas.getContext("2d", { alpha: false });
     const size = 700;
+    let pixelRatio = 1;
+    let viewWidth = size;
+    let viewHeight = size;
+    let sceneScale = 1;
+    let offsetX = 0;
+    let offsetY = 0;
     const vertices = [];
     const edges = [];
     let time = 0;
@@ -41,10 +47,15 @@
     }
 
     function setResolution() {
-      const ratio = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = size * ratio;
-      canvas.height = size * ratio;
-      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      const bounds = canvas.getBoundingClientRect();
+      pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      viewWidth = Math.max(1, Math.round(bounds.width));
+      viewHeight = Math.max(1, Math.round(bounds.height));
+      sceneScale = Math.min(viewWidth / size, viewHeight / size);
+      offsetX = (viewWidth - size * sceneScale) / 2;
+      offsetY = (viewHeight - size * sceneScale) / 2;
+      canvas.width = Math.round(viewWidth * pixelRatio);
+      canvas.height = Math.round(viewHeight * pixelRatio);
     }
 
     function rotate(point, first, second, angle) {
@@ -78,8 +89,10 @@
     }
 
     function draw() {
+      ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
       ctx.fillStyle = "#000";
-      ctx.fillRect(0, 0, size, size);
+      ctx.fillRect(0, 0, viewWidth, viewHeight);
+      ctx.setTransform(pixelRatio * sceneScale, 0, 0, pixelRatio * sceneScale, pixelRatio * offsetX, pixelRatio * offsetY);
       const points = vertices.map(project);
       const orderedEdges = edges
         .map(([from, to]) => ({ from: points[from], to: points[to], depth: (points[from].z + points[to].z) / 2 }))
@@ -119,6 +132,7 @@
     canvas.tabIndex = 0;
     canvas.setAttribute("aria-label", "Анимированная проекция четырёхмерного гиперкуба. Нажмите, чтобы остановить или запустить.");
     setResolution();
+    window.addEventListener("resize", setResolution);
     frame();
   </script>
 </body>
