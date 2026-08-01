@@ -26,7 +26,8 @@
     const canvas = document.querySelector("#sketch");
     const context = canvas.getContext("2d", { alpha: false });
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const worldSize = 400;
+    const worldSize = 500;
+    const fractalScale = 400;
     const maxIterations = 400;
     const eye = { x: worldSize, y: worldSize, z: worldSize };
     const camera = {
@@ -47,8 +48,8 @@
       let imaginary = 0;
       let iteration = 0;
       while (real * real + imaginary * imaginary < 4 && iteration < maxIterations) {
-        const next = real * real - imaginary * imaginary + x / worldSize - 1;
-        imaginary = 2 * real * imaginary + y / worldSize;
+        const next = real * real - imaginary * imaginary + x / fractalScale - .75;
+        imaginary = 2 * real * imaginary + y / fractalScale;
         real = next;
         iteration += 1;
       }
