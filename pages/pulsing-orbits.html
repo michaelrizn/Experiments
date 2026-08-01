@@ -9,8 +9,8 @@
     :root { color-scheme:dark; background:#090909; }
     * { box-sizing:border-box; }
     html,body { min-height:100%; margin:0; background:#090909; }
-    main { min-height:100vh; display:grid; place-items:center; padding:20px; }
-    canvas { display:block; width:min(100%, 560px); height:auto; aspect-ratio:1; background:#090909; touch-action:manipulation; }
+    main { min-height:calc(100dvh - 64px); display:grid; place-items:center; padding:12px; overflow:hidden; }
+    canvas { display:block; width:min(100%, 1100px); height:auto; aspect-ratio:16 / 9; background:#090909; touch-action:manipulation; }
   </style>
   <script src="../assets/toolbar.js" defer></script>
 </head>
@@ -22,19 +22,32 @@
     const canvas = document.querySelector("#sketch");
     const ctx = canvas.getContext("2d", { alpha: false });
     const size = 400;
+    let pixelRatio = 1;
+    let viewWidth = size;
+    let viewHeight = size;
+    let sceneScale = 1;
+    let offsetX = 0;
+    let offsetY = 0;
     let time = 0;
     let paused = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     function setResolution() {
-      const ratio = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = size * ratio;
-      canvas.height = size * ratio;
-      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      const bounds = canvas.getBoundingClientRect();
+      pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      viewWidth = Math.max(1, Math.round(bounds.width));
+      viewHeight = Math.max(1, Math.round(bounds.height));
+      sceneScale = Math.min(viewWidth / size, viewHeight / size);
+      offsetX = (viewWidth - size * sceneScale) / 2;
+      offsetY = (viewHeight - size * sceneScale) / 2;
+      canvas.width = Math.round(viewWidth * pixelRatio);
+      canvas.height = Math.round(viewHeight * pixelRatio);
     }
 
     function draw() {
+      ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
       ctx.fillStyle = "#090909";
-      ctx.fillRect(0, 0, size, size);
+      ctx.fillRect(0, 0, viewWidth, viewHeight);
+      ctx.setTransform(pixelRatio * sceneScale, 0, 0, pixelRatio * sceneScale, pixelRatio * offsetX, pixelRatio * offsetY);
       ctx.fillStyle = "rgba(255, 255, 255, .376)";
 
       for (let i = 10000; i > 0; i--) {
@@ -66,6 +79,7 @@
     canvas.tabIndex = 0;
     canvas.setAttribute("aria-label", "Анимированная композиция из пульсирующих орбит. Нажмите, чтобы остановить или запустить.");
     setResolution();
+    window.addEventListener("resize", setResolution);
     frame();
   </script>
 </body>
