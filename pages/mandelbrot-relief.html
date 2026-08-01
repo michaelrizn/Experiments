@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>Рельеф Мандельброта</title>
+  <style>
+    :root { color-scheme:dark; background:#000; }
+    * { box-sizing:border-box; }
+    html,body { min-height:100%; margin:0; background:#000; }
+    main { min-height:calc(100dvh - 64px); display:grid; place-items:center; padding:12px; overflow:hidden; }
+    .canvas-frame { width:min(100%, 1100px); aspect-ratio:16 / 9; }
+    canvas { display:block; width:100%; height:100%; background:#000; touch-action:manipulation; }
+  </style>
+  <script src="../assets/toolbar.js" defer></script>
+</head>
+<body data-title="Рельеф Мандельброта" data-back="../">
+  <main>
+    <div class="canvas-frame">
+      <canvas id="sketch" aria-label="Анимированный рельеф множества Мандельброта"></canvas>
+    </div>
+  </main>
+  <script>
+    // Исходный скетч: float r,i,t,x,y,n,d=400,k=0;void setup(){size(800,800,P3D);}void draw(){background(-1);camera(d,d,d,0,0,0,0,0,-1);for(x=-d;x<d;x++)for(y=-d;y<d;y++){r=i=n=0;while((r*r+i*i<4)&&n<d){t=r*r-i*i+x/d-1;i=2*r*i+y/d;r=t;n++;}stroke(n);point(x,y,-n*k);}k+=.01;}
+    const canvas = document.querySelector("#sketch");
+    const ctx = canvas.getContext("2d", { alpha: false });
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let pixelRatio = 1;
+    let viewWidth = 700;
+    let viewHeight = 400;
+    let depth = 0;
+    let paused = reducedMotion.matches;
+
+    function setResolution() {
+      const bounds = canvas.getBoundingClientRect();
+      pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      viewWidth = Math.max(1, Math.round(bounds.width));
+      viewHeight = Math.max(1, Math.round(bounds.height));
+      canvas.width = Math.round(viewWidth * pixelRatio);
+      canvas.height = Math.round(viewHeight * pixelRatio);
+    }
+
+    function mandelbrot(real, imaginary) {
+      let r = 0;
+      let i = 0;
+      let n = 0;
+      while (r * r + i * i < 4 && n < 160) {
+        const next = r * r - i * i + real;
+        i = 2 * r * i + imaginary;
+        r = next;
+        n += 1;
+      }
+      return n;
+    }
+
+    function draw() {
+      ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, viewWidth, viewHeight);
+
+      const columns = Math.max(86, Math.min(170, Math.round(viewWidth / 5.2)));
+      const rows = Math.max(58, Math.min(112, Math.round(viewHeight / 5.2)));
+      const points = [];
+      const rotation = -.72;
+      const cosRotation = Math.cos(rotation);
+      const sinRotation = Math.sin(rotation);
+      const lift = Math.sin(depth * .55) * .18;
+
+      for (let row = 0; row < rows; row += 1) {
+        const imaginary = (row / (rows - 1)) * 2.5 - 1.25;
+        for (let column = 0; column < columns; column += 1) {
+          const real = (column / (columns - 1)) * 3.4 - 2.35;
+          const iterations = mandelbrot(real, imaginary);
+          const planeX = (real + .42) * 220;
+          const planeY = imaginary * 220;
+          const planeZ = -iterations * (2.15 + lift) - depth * 19;
+          const turnedX = planeX * cosRotation - planeZ * sinRotation;
+          const turnedZ = planeX * sinRotation + planeZ * cosRotation;
+          const tiltedY = planeY + turnedZ * .28;
+          const perspective = 2.6 / Math.max(.8, 2.6 - turnedZ / 540);
+          points.push({
+            x: turnedX * perspective,
+            y: tiltedY * perspective,
+            tone: iterations === 160 ? 9 : 46 + Math.round(iterations * 1.25),
+            alpha: iterations === 160 ? .18 : .38 + iterations / 340,
+          });
+        }
+      }
+
+      const padding = Math.max(20, Math.min(viewWidth, viewHeight) * .065);
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minY = Infinity;
+      let maxY = -Infinity;
+      for (const point of points) {
+        minX = Math.min(minX, point.x);
+        maxX = Math.max(maxX, point.x);
+        minY = Math.min(minY, point.y);
+        maxY = Math.max(maxY, point.y);
+      }
+      const scale = Math.min(
+        (viewWidth - padding * 2) / (maxX - minX),
+        (viewHeight - padding * 2) / (maxY - minY),
+      );
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      const pointSize = Math.max(.48, Math.min(1.15, Math.min(viewWidth, viewHeight) / 650));
+
+      for (const point of points) {
+        const screenX = (point.x - centerX) * scale + viewWidth / 2;
+        const screenY = (point.y - centerY) * scale + viewHeight / 2;
+        ctx.fillStyle = `rgb(${point.tone} ${point.tone} ${point.tone} / ${point.alpha})`;
+        ctx.fillRect(screenX, screenY, pointSize, pointSize);
+      }
+    }
+
+    function frame() {
+      if (!paused) depth = (depth + .012) % 11.4;
+      draw();
+      requestAnimationFrame(frame);
+    }
+
+    canvas.addEventListener("click", () => { paused = !paused; });
+    canvas.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        paused = !paused;
+      }
+    });
+    reducedMotion.addEventListener("change", event => { paused = event.matches; });
+    canvas.tabIndex = 0;
+    canvas.setAttribute("aria-label", "Анимированный рельеф множества Мандельброта. Нажмите, чтобы остановить или запустить.");
+    setResolution();
+    window.addEventListener("resize", setResolution);
+    window.addEventListener("orientationchange", setResolution);
+    frame();
+  </script>
+</body>
+</html>
