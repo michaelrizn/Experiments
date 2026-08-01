@@ -62,7 +62,7 @@
             row: row / (rows - 1) - .5,
             height: iteration / maximumIterations,
             visible: iteration < maximumIterations,
-            brightness: Math.min(255, 150 + iteration * 1.1),
+            brightness: Math.max(18, 255 - iteration * 2.1),
           });
         }
       }
@@ -87,7 +87,7 @@
       const centerX = viewWidth * .51;
       const horizonY = viewHeight * .68;
       const yaw = -.16 + Math.sin(phase) * .08;
-      const pointSize = Math.max(.65, Math.min(1.2, unit / 48));
+      const pointSize = Math.max(.95, Math.min(1.5, unit / 36));
 
       for (const point of terrain) {
         if (!point.visible) continue;
