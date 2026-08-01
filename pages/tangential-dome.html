@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>Тангенциальный купол</title>
+  <style>
+    :root { color-scheme:dark; background:#000; }
+    * { box-sizing:border-box; }
+    html,body { min-height:100%; margin:0; background:#000; }
+    main { min-height:calc(100dvh - 64px); display:grid; place-items:center; padding:12px; overflow:hidden; }
+    .canvas-frame { width:min(100%, 1100px); aspect-ratio:16 / 9; }
+    canvas { display:block; width:100%; height:100%; background:#000; touch-action:manipulation; }
+  </style>
+  <script src="../assets/toolbar.js" defer></script>
+</head>
+<body data-title="Тангенциальный купол" data-back="../">
+  <main>
+    <div class="canvas-frame">
+      <canvas id="sketch" aria-label="Анимированный тангенциальный купол"></canvas>
+    </div>
+  </main>
+  <script>
+    // Исходный скетч: f=0,draw=a=>{for(f||createCanvas(W=400,W,WEBGL),lights(background(0)),j=0;j<PI;j+=PI/32)for(i=0;i<TAU;i+=PI/512)push(),rotateY(i+f),translate(sin(T=tan(atan(i)))*(S=150*sin(j+i)),tan(cos(i+f))*sin(i+f)*150,cos(T)*S),pop(sphere(3*cos(i+f),W));f+=PI/256};//
+    const canvas = document.querySelector("#sketch");
+    const ctx = canvas.getContext("2d", { alpha: false });
+    let pixelRatio = 1;
+    let viewWidth = 700;
+    let viewHeight = 400;
+    let time = 0;
+    let paused = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    function setResolution() {
+      const bounds = canvas.getBoundingClientRect();
+      pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      viewWidth = Math.max(1, Math.round(bounds.width));
+      viewHeight = Math.max(1, Math.round(bounds.height));
+      canvas.width = Math.round(viewWidth * pixelRatio);
+      canvas.height = Math.round(viewHeight * pixelRatio);
+    }
+
+    function draw() {
+      ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, viewWidth, viewHeight);
+      const scale = Math.min(viewWidth / 420, viewHeight / 330);
+      const centerX = viewWidth / 2;
+      const centerY = viewHeight / 2;
+      const tilt = -.42;
+      const cosTilt = Math.cos(tilt);
+      const sinTilt = Math.sin(tilt);
+
+      for (let j = 0; j < Math.PI; j += Math.PI / 28) {
+        for (let i = 0; i < Math.PI * 2; i += Math.PI / 180) {
+          const t = Math.tan(Math.atan(i));
+          const s = 150 * Math.sin(j + i);
+          const x = Math.sin(t) * s;
+          const y = Math.tan(Math.cos(i + time)) * Math.sin(i + time) * 150;
+          const z = Math.cos(t) * s;
+          const rotatedX = x * Math.cos(i + time) + z * Math.sin(i + time);
+          const rotatedZ = -x * Math.sin(i + time) + z * Math.cos(i + time);
+          const tiltedY = y * cosTilt - rotatedZ * sinTilt;
+          const tiltedZ = y * sinTilt + rotatedZ * cosTilt;
+          const depth = 3.5 / (3.5 - tiltedZ / 180);
+          const radius = Math.max(.45, Math.min(2.4, Math.abs(3 * Math.cos(i + time)) * depth));
+          const light = Math.max(64, Math.min(255, Math.round(128 + tiltedZ * .45)));
+          ctx.fillStyle = `rgb(${light} ${Math.min(255, light + 12)} 255 / ${Math.max(.18, Math.min(.9, depth - .2))})`;
+          ctx.beginPath();
+          ctx.arc(centerX + rotatedX * scale * depth, centerY + tiltedY * scale * depth, radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    function frame() {
+      if (!paused) time += Math.PI / 256;
+      draw();
+      requestAnimationFrame(frame);
+    }
+
+    canvas.addEventListener("click", () => { paused = !paused; });
+    canvas.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); paused = !paused; }
+    });
+    canvas.tabIndex = 0;
+    canvas.setAttribute("aria-label", "Анимированный тангенциальный купол. Нажмите, чтобы остановить или запустить.");
+    setResolution();
+    window.addEventListener("resize", setResolution);
+    window.addEventListener("orientationchange", setResolution);
+    frame();
+  </script>
+</body>
+</html>
