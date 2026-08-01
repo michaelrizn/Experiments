@@ -15,7 +15,7 @@
 </head>
 <body>
   <main>
-    <canvas id="sketch" width="400" height="400" aria-label="Анимированная генеративная композиция"></canvas>
+    <canvas id="sketch" aria-label="Анимированная генеративная композиция"></canvas>
   </main>
   <script>
     const canvas = document.querySelector("#sketch");
@@ -23,6 +23,13 @@
     const size = 400;
     let time = 0;
     let paused = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    function setResolution() {
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = size * ratio;
+      canvas.height = size * ratio;
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    }
 
     function draw() {
       ctx.fillStyle = "#090909";
@@ -52,6 +59,7 @@
     });
     canvas.tabIndex = 0;
     canvas.setAttribute("aria-label", "Анимированная генеративная композиция. Нажмите, чтобы остановить или запустить.");
+    setResolution();
     frame();
   </script>
 </body>
