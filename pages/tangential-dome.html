@@ -44,12 +44,10 @@
       ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, viewWidth, viewHeight);
-      const scale = Math.min(viewWidth / 420, viewHeight / 330);
-      const centerX = viewWidth / 2;
-      const centerY = viewHeight / 2;
       const tilt = -.42;
       const cosTilt = Math.cos(tilt);
       const sinTilt = Math.sin(tilt);
+      const points = [];
 
       for (let j = 0; j < Math.PI; j += Math.PI / 28) {
         for (let i = 0; i < Math.PI * 2; i += Math.PI / 180) {
@@ -64,11 +62,38 @@
           const tiltedZ = y * sinTilt + rotatedZ * cosTilt;
           const depth = 3.5 / (3.5 - tiltedZ / 180);
           const radius = Math.max(.25, Math.min(1.05, Math.abs(Math.cos(i + time)) * depth));
-          ctx.fillStyle = `rgb(255 255 255 / ${Math.max(.32, Math.min(.88, depth - .16))})`;
-          ctx.beginPath();
-          ctx.arc(centerX + rotatedX * scale * depth, centerY + tiltedY * scale * depth, radius, 0, Math.PI * 2);
-          ctx.fill();
+          points.push({
+            x: rotatedX * depth,
+            y: tiltedY * depth,
+            radius,
+            alpha: Math.max(.32, Math.min(.88, depth - .16)),
+          });
         }
+      }
+
+      const padding = Math.max(20, Math.min(viewWidth, viewHeight) * .055);
+      const minX = Math.min(...points.map(point => point.x));
+      const maxX = Math.max(...points.map(point => point.x));
+      const minY = Math.min(...points.map(point => point.y));
+      const maxY = Math.max(...points.map(point => point.y));
+      const scale = Math.min(
+        (viewWidth - padding * 2) / (maxX - minX),
+        (viewHeight - padding * 2) / (maxY - minY),
+      );
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+
+      for (const point of points) {
+        ctx.fillStyle = `rgb(255 255 255 / ${point.alpha})`;
+          ctx.beginPath();
+        ctx.arc(
+          (point.x - centerX) * scale + viewWidth / 2,
+          (point.y - centerY) * scale + viewHeight / 2,
+          point.radius,
+          0,
+          Math.PI * 2,
+        );
+          ctx.fill();
       }
     }
 
