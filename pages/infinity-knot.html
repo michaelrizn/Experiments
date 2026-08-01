@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>Узел бесконечности</title>
+  <style>
+    :root { color-scheme:dark; background:#000; }
+    * { box-sizing:border-box; }
+    html,body { min-height:100%; margin:0; background:#000; }
+    main { min-height:calc(100dvh - 64px); display:grid; place-items:center; padding:12px; overflow:hidden; }
+    .canvas-frame { width:min(100%, 1100px); aspect-ratio:16 / 9; }
+    canvas { display:block; width:100%; height:100%; background:#000; touch-action:manipulation; }
+  </style>
+  <script src="../assets/toolbar.js" defer></script>
+</head>
+<body data-title="Узел бесконечности" data-back="../">
+  <main><div class="canvas-frame"><canvas id="sketch" aria-label="Анимированный узел бесконечности"></canvas></div></main>
+  <script>
+    const canvas = document.querySelector("#sketch");
+    const ctx = canvas.getContext("2d", { alpha:false });
+    let ratio = 1, width = 800, height = 450, time = 0;
+    let paused = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    function resize() { const box = canvas.getBoundingClientRect(); ratio = Math.min(devicePixelRatio || 1, 2); width = Math.max(1, Math.round(box.width)); height = Math.max(1, Math.round(box.height)); canvas.width = width * ratio; canvas.height = height * ratio; }
+    function draw() {
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0); ctx.fillStyle = "#000"; ctx.fillRect(0, 0, width, height);
+      const points = [];
+      for (let band = -7; band <= 7; band++) for (let i = 0; i < 360; i++) {
+        const a = i / 360 * Math.PI * 2;
+        const ribbon = band * 2.8;
+        let x = (150 + ribbon * Math.cos(a * 2)) * Math.cos(a);
+        let y = (150 + ribbon * Math.cos(a * 2)) * Math.sin(a);
+        let z = ribbon * Math.sin(a * 2) + 54 * Math.sin(a * 2);
+        const yaw = time * .55, pitch = -.42;
+        const x1 = x * Math.cos(yaw) + z * Math.sin(yaw), z1 = -x * Math.sin(yaw) + z * Math.cos(yaw);
+        const y1 = y * Math.cos(pitch) - z1 * Math.sin(pitch), z2 = y * Math.sin(pitch) + z1 * Math.cos(pitch);
+        const scale = 520 / (520 - z2);
+        points.push({ x:x1 * scale, y:y1 * scale, z:z2, a:.18 + scale * .55 });
+      }
+      points.sort((a,b) => a.z - b.z);
+      const scene = Math.min(width / 430, height / 330);
+      for (const p of points) { ctx.globalAlpha = Math.min(.9, p.a); ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(width / 2 + p.x * scene, height / 2 + p.y * scene, .6, 0, Math.PI * 2); ctx.fill(); }
+      ctx.globalAlpha = 1;
+    }
+    function frame() { if (!paused) time += .012; draw(); requestAnimationFrame(frame); }
+    canvas.tabIndex = 0; canvas.onclick = () => paused = !paused; canvas.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); paused = !paused; } };
+    resize(); addEventListener("resize", resize); addEventListener("orientationchange", resize); frame();
+  </script>
+</body>
+</html>
