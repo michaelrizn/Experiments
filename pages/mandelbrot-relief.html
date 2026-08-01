@@ -40,6 +40,9 @@
     let paused = reducedMotion.matches;
     let vertexBuffer;
     let pointCount = 0;
+    let pointData;
+    let depthMin = 0;
+    let depthMax = 1;
 
     const vertexSource = `
       attribute vec3 aPoint;
@@ -49,6 +52,8 @@
       uniform vec2 uResolution;
       uniform float uPixelRatio;
       uniform float uPointSize;
+      uniform float uDepthMin;
+      uniform float uDepthMax;
       varying float vTone;
 
       void main() {
@@ -64,7 +69,8 @@
         float sourceY = 400.0 + focal * dot(delta, up) / depth;
         vec2 pixel = (uOffset + vec2(sourceX, sourceY) * uScale) * uPixelRatio;
 
-        gl_Position = vec4(pixel.x / uResolution.x * 2.0 - 1.0, 1.0 - pixel.y / uResolution.y * 2.0, depth / 10000.0 * 2.0 - 1.0, 1.0);
+        float normalizedDepth = (depth - uDepthMin) / max(1.0, uDepthMax - uDepthMin);
+        gl_Position = vec4(pixel.x / uResolution.x * 2.0 - 1.0, 1.0 - pixel.y / uResolution.y * 2.0, normalizedDepth * 1.8 - .9, 1.0);
         gl_PointSize = uPointSize * uPixelRatio;
         vTone = min(1.0, aPoint.z / 255.0);
       }
@@ -103,6 +109,8 @@
       resolution: gl.getUniformLocation(program, "uResolution"),
       pixelRatio: gl.getUniformLocation(program, "uPixelRatio"),
       pointSize: gl.getUniformLocation(program, "uPointSize"),
+      depthMin: gl.getUniformLocation(program, "uDepthMin"),
+      depthMax: gl.getUniformLocation(program, "uDepthMax"),
     };
 
     gl.enable(gl.DEPTH_TEST);
@@ -141,10 +149,51 @@
       }
 
       pointCount = density * density;
+      pointData = data;
       if (!vertexBuffer) vertexBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
       gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
       gl.vertexAttribPointer(locations.point, 3, gl.FLOAT, false, 0, 0);
+    }
+
+    // Вписывает именно текущую перспективную проекцию, не меняя оси исходного скетча.
+    function fitProjectedScene() {
+      const eyeX = 400;
+      const eyeY = 400;
+      const eyeZ = 400;
+      const focal = 400 / Math.tan(Math.PI / 6);
+      const padding = Math.max(12, Math.min(width, height) * .035);
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      let nearDepth = Infinity;
+      let farDepth = -Infinity;
+
+      for (let index = 0; index < pointData.length; index += 3) {
+        const dx = pointData[index] - eyeX;
+        const dy = pointData[index + 1] - eyeY;
+        const dz = -pointData[index + 2] * k - eyeZ;
+        const depth = -(dx + dy + dz) * .57735027;
+        if (depth <= 1) continue;
+
+        const sourceX = 400 + focal * (dx - dy) * .70710678 / depth;
+        const sourceY = 400 + focal * (dx + dy - dz * 2) * .40824829 / depth;
+        minX = Math.min(minX, sourceX);
+        minY = Math.min(minY, sourceY);
+        maxX = Math.max(maxX, sourceX);
+        maxY = Math.max(maxY, sourceY);
+        nearDepth = Math.min(nearDepth, depth);
+        farDepth = Math.max(farDepth, depth);
+      }
+
+      const projectedWidth = Math.max(1, maxX - minX);
+      const projectedHeight = Math.max(1, maxY - minY);
+      scale = Math.min((width - padding * 2) / projectedWidth, (height - padding * 2) / projectedHeight);
+      offsetX = (width - projectedWidth * scale) * .5 - minX * scale;
+      offsetY = (height - projectedHeight * scale) * .5 - minY * scale;
+      depthMin = nearDepth;
+      depthMax = Math.max(nearDepth + 1, farDepth);
     }
 
     function resize() {
@@ -156,11 +205,8 @@
       canvas.height = Math.round(height * pixelRatio);
       gl.viewport(0, 0, canvas.width, canvas.height);
 
-      const padding = Math.max(12, Math.min(width, height) * .035);
-      scale = Math.min((width - padding * 2) / sceneSize, (height - padding * 2) / sceneSize);
-      offsetX = (width - sceneSize * scale) * .5;
-      offsetY = (height - sceneSize * scale) * .5;
       buildPoints();
+      fitProjectedScene();
     }
 
     function draw() {
@@ -172,11 +218,14 @@
       gl.uniform2f(locations.resolution, canvas.width, canvas.height);
       gl.uniform1f(locations.pixelRatio, pixelRatio);
       gl.uniform1f(locations.pointSize, Math.max(.85, Math.min(1.25, Math.min(width, height) / 620)));
+      gl.uniform1f(locations.depthMin, depthMin);
+      gl.uniform1f(locations.depthMax, depthMax);
       gl.drawArrays(gl.POINTS, 0, pointCount);
     }
 
     function frame() {
       if (!paused) k += .01;
+      fitProjectedScene();
       draw();
       requestAnimationFrame(frame);
     }
