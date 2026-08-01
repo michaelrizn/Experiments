@@ -103,7 +103,7 @@
           depth,
           x: centerX + focal * scale * (dx * camera.right.x + dy * camera.right.y + dz * camera.right.z) / depth,
           y: centerY - focal * scale * (dx * camera.up.x + dy * camera.up.y + dz * camera.up.z) / depth,
-          tone: Math.max(0, 255 - Math.min(255, Math.round(point.n * .88))),
+          tone: Math.min(255, Math.round(point.n * .88)),
         });
       }
 
