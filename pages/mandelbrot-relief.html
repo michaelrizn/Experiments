@@ -100,8 +100,12 @@
         const depth = dx * camera.forward.x + dy * camera.forward.y + dz * camera.forward.z;
         if (depth <= 4) continue;
 
-        const x = focal * (dx * camera.right.x + dy * camera.right.y) / depth;
-        const y = -focal * (dx * camera.up.x + dy * camera.up.y + dz * camera.up.z) / depth;
+        const sourceX = focal * (dx * camera.right.x + dy * camera.right.y) / depth;
+        const sourceY = -focal * (dx * camera.up.x + dy * camera.up.y + dz * camera.up.z) / depth;
+
+        // Поворот экранной проекции на 90° по часовой стрелке.
+        const x = -sourceY;
+        const y = sourceX;
         projected.push({ depth, x, y, tone: Math.max(0, 255 - point.n) });
         minX = Math.min(minX, x);
         maxX = Math.max(maxX, x);
