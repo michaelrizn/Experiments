@@ -63,9 +63,8 @@
           const tiltedY = y * cosTilt - rotatedZ * sinTilt;
           const tiltedZ = y * sinTilt + rotatedZ * cosTilt;
           const depth = 3.5 / (3.5 - tiltedZ / 180);
-          const radius = Math.max(.45, Math.min(2.4, Math.abs(3 * Math.cos(i + time)) * depth));
-          const light = Math.max(64, Math.min(255, Math.round(128 + tiltedZ * .45)));
-          ctx.fillStyle = `rgb(${light} ${Math.min(255, light + 12)} 255 / ${Math.max(.18, Math.min(.9, depth - .2))})`;
+          const radius = Math.max(.25, Math.min(1.05, Math.abs(Math.cos(i + time)) * depth));
+          ctx.fillStyle = `rgb(255 255 255 / ${Math.max(.32, Math.min(.88, depth - .16))})`;
           ctx.beginPath();
           ctx.arc(centerX + rotatedX * scale * depth, centerY + tiltedY * scale * depth, radius, 0, Math.PI * 2);
           ctx.fill();
