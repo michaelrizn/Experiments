@@ -42,44 +42,54 @@
       ctx.fillRect(0,0,width,height);
 
       const portrait=height>width;
-      const spacing=Math.max(13,Math.min(24,portrait?width/25:height/23));
+      const spacing=Math.max(13,Math.min(23,Math.min(width,height)/23));
       const columns=Math.ceil(width/spacing)+2;
       const rows=Math.ceil(height/spacing)+2;
-      const cx=width/2,cy=height/2;
-      const rx=width*.44,ry=height*.43;
+      const scene=Math.min(width,height);
+      const rippleRadius=scene*.43;
+      const centers=portrait
+        ? [[width*.5,height*.19],[width*.5,height*.5],[width*.5,height*.81]]
+        : [[width*.24,height*.5],[width*.5,height*.5],[width*.76,height*.5]];
 
       for(let row=0;row<rows;row++){
         for(let col=0;col<columns;col++){
           const baseX=(col-1)*spacing;
           const baseY=(row-1)*spacing;
-          const nx=(baseX-cx)/rx;
-          const ny=(baseY-cy)/ry;
-          const distance=Math.hypot(nx,ny);
-          const envelope=Math.exp(-distance*2.65);
-          const wave=Math.sin(distance*25-time*3.3)*envelope;
-          const ripple=Math.max(0,wave);
-          const angle=Math.atan2(ny,nx);
-          const offset=wave*spacing*.62;
-          const x=baseX+Math.cos(angle)*offset;
-          const y=baseY+Math.sin(angle)*offset;
+          let offsetX=0,offsetY=0,ripple=0;
+          for(const [cx,cy] of centers){
+            const dx=baseX-cx,dy=baseY-cy;
+            const distance=Math.hypot(dx,dy);
+            const normalized=distance/rippleRadius;
+            const envelope=Math.exp(-normalized*2.25);
+            const wave=Math.sin(normalized*20-time*3.1)*envelope;
+            const strength=Math.max(0,wave);
+            ripple=Math.max(ripple,strength);
+            if(distance>0.01){
+              offsetX+=dx/distance*wave*spacing*.44;
+              offsetY+=dy/distance*wave*spacing*.44;
+            }
+          }
+          const x=baseX+offsetX;
+          const y=baseY+offsetY;
 
-          ctx.globalAlpha=.10+ripple*.84;
+          ctx.globalAlpha=.18+ripple*.82;
           ctx.fillStyle="#fff";
           ctx.beginPath();
-          ctx.arc(x,y,.55+ripple*1.7,0,Math.PI*2);
+          ctx.arc(x,y,.72+ripple*1.55,0,Math.PI*2);
           ctx.fill();
         }
       }
 
-      for(let ring=0;ring<8;ring++){
-        const phase=(ring/8+time*.085)%1;
-        const alpha=.28*(1-phase);
-        ctx.globalAlpha=alpha;
-        ctx.strokeStyle="#fff";
-        ctx.lineWidth=.65;
-        ctx.beginPath();
-        ctx.ellipse(cx,cy,rx*phase,ry*phase,0,0,Math.PI*2);
-        ctx.stroke();
+      for(const [cx,cy] of centers){
+        for(let ring=0;ring<4;ring++){
+          const phase=(ring/4+time*.085)%1;
+          ctx.globalAlpha=.38*(1-phase);
+          ctx.strokeStyle="#fff";
+          ctx.lineWidth=.8;
+          ctx.beginPath();
+          ctx.arc(cx,cy,rippleRadius*phase,0,Math.PI*2);
+          ctx.stroke();
+        }
       }
       ctx.globalAlpha=1;
     }
