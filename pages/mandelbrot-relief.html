@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f7f7f7">
+  <meta name="theme-color" content="#000000">
   <title>Рельеф Мандельброта</title>
   <style>
-    :root { color-scheme: light; background: #f7f7f7; }
+    :root { color-scheme: dark; background: #000; }
     * { box-sizing: border-box; }
-    html, body { min-height: 100%; margin: 0; background: #f7f7f7; }
+    html, body { min-height: 100%; margin: 0; background: #000; }
     main { min-height: calc(100dvh - 64px); display: grid; place-items: center; padding: 12px; overflow: hidden; }
     .canvas-frame { width: min(100%, 1180px); aspect-ratio: 16 / 10; }
-    canvas { display: block; width: 100%; height: 100%; background: #f7f7f7; touch-action: manipulation; }
+    canvas { display: block; width: 100%; height: 100%; background: #000; touch-action: manipulation; }
   </style>
   <script src="../assets/toolbar.js" defer></script>
 </head>
@@ -80,7 +80,7 @@
 
     function draw() {
       context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-      context.fillStyle = "#f7f7f7";
+      context.fillStyle = "#000";
       context.fillRect(0, 0, width, height);
 
       const focal = Math.min(width, height) * .88;
@@ -103,7 +103,7 @@
           depth,
           x: centerX + focal * scale * (dx * camera.right.x + dy * camera.right.y + dz * camera.right.z) / depth,
           y: centerY - focal * scale * (dx * camera.up.x + dy * camera.up.y + dz * camera.up.z) / depth,
-          tone: Math.min(255, Math.round(point.n * .88)),
+          tone: Math.max(0, 255 - Math.min(255, Math.round(point.n * .88))),
         });
       }
 
