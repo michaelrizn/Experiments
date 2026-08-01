@@ -17,7 +17,19 @@
 
   const source = dialog.querySelector("#page-source");
   const status = dialog.querySelector("#copy-status");
-  const getCode = () => "<!doctype html>\n" + document.documentElement.outerHTML;
+  const getCode = () => {
+    const blocks = [];
+    const styles = [...document.head.querySelectorAll("style:not([data-toolbar-style])")]
+      .map((node) => node.outerHTML.trim());
+    const content = document.querySelector("main")?.outerHTML.trim();
+    const scripts = [...document.body.querySelectorAll('script:not([src])')]
+      .map((node) => node.outerHTML.trim());
+
+    if (styles.length) blocks.push(styles.join("\n\n"));
+    if (content) blocks.push(content);
+    if (scripts.length) blocks.push(scripts.join("\n\n"));
+    return blocks.join("\n\n");
+  };
   document.querySelector("#page-code").onclick = () => { source.textContent = getCode(); status.textContent = ""; dialog.showModal(); };
   document.querySelector("#close-code").onclick = () => dialog.close();
   dialog.addEventListener("click", event => { if (event.target === dialog) dialog.close(); });
