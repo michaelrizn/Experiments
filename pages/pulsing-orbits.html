@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#090909">
+  <title>Тройной резонанс</title>
+  <style>
+    :root { color-scheme:dark; background:#090909; }
+    * { box-sizing:border-box; }
+    html,body { min-height:100%; margin:0; background:#090909; }
+    main { min-height:100vh; display:grid; place-items:center; padding:20px; }
+    canvas { display:block; width:min(100%, 560px); height:auto; aspect-ratio:1; background:#090909; touch-action:manipulation; }
+  </style>
+  <script src="../assets/toolbar.js" defer></script>
+</head>
+<body data-title="Тройной резонанс" data-back="../">
+  <main>
+    <canvas id="sketch" aria-label="Анимированная композиция из пульсирующих орбит"></canvas>
+  </main>
+  <script>
+    const canvas = document.querySelector("#sketch");
+    const ctx = canvas.getContext("2d", { alpha: false });
+    const size = 400;
+    let time = 0;
+    let paused = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    function setResolution() {
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = size * ratio;
+      canvas.height = size * ratio;
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    }
+
+    function draw() {
+      ctx.fillStyle = "#090909";
+      ctx.fillRect(0, 0, size, size);
+      ctx.fillStyle = "rgba(255, 255, 255, .376)";
+
+      for (let i = 10000; i > 0; i--) {
+        const m = (i % 3) * 4;
+        const k = 9 * Math.cos(i / 81);
+        const e = i / 461 - 11;
+        const d = Math.hypot(k, e) ** 4 / 40000 + 1.5 + Math.sin(time / 2 + m) / 4;
+        const q = 89 - e * Math.sin(k) + k * (4 + 2 * Math.sin(d * 9 + e / 9 - time));
+        const c = d + Math.sin(time - d * 4) / 9 - time / 9 + m;
+        const x = q * Math.cos(c) + 200;
+        const y = (q + 30) * Math.sin(c) + 200;
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+
+    function frame() {
+      if (!paused) time += Math.PI / 60;
+      draw();
+      requestAnimationFrame(frame);
+    }
+
+    canvas.addEventListener("click", () => { paused = !paused; });
+    canvas.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        paused = !paused;
+      }
+    });
+    canvas.tabIndex = 0;
+    canvas.setAttribute("aria-label", "Анимированная композиция из пульсирующих орбит. Нажмите, чтобы остановить или запустить.");
+    setResolution();
+    frame();
+  </script>
+</body>
+</html>
