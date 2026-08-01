@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>Звёздный колодец</title>
+  <style>
+    :root { color-scheme:dark; background:#000; } * { box-sizing:border-box; } html,body { min-height:100%; margin:0; background:#000; }
+    main { height:calc(100dvh - 64px); display:grid; place-items:center; padding:12px; overflow:hidden; } .canvas-frame { height:min(900px, calc(100dvh - 88px), calc((100vw - 24px) * 16 / 9)); aspect-ratio:9 / 16; } canvas { display:block; width:100%; height:100%; background:#000; touch-action:manipulation; }
+    @media (max-width:720px) { .toolbar + main { height:calc(100dvh - 64px - env(safe-area-inset-top)); } .canvas-frame { height:min(calc(100dvh - 88px - env(safe-area-inset-top)), calc((100vw - 24px) * 16 / 9)); } }
+  </style>
+  <script src="../assets/toolbar.js" defer></script>
+</head>
+<body data-title="Звёздный колодец" data-back="../">
+  <main><div class="canvas-frame"><canvas id="sketch" aria-label="Анимированный звёздный колодец"></canvas></div></main>
+  <script>
+    const canvas=document.querySelector("#sketch"),ctx=canvas.getContext("2d",{alpha:false});let ratio=1,width=360,height=640,time=0,paused=matchMedia("(prefers-reduced-motion: reduce)").matches;
+    function resize(){const b=canvas.getBoundingClientRect();ratio=Math.min(devicePixelRatio||1,2);width=Math.max(1,Math.round(b.width));height=Math.max(1,Math.round(b.height));canvas.width=width*ratio;canvas.height=height*ratio;}
+    function draw(){ctx.setTransform(ratio,0,0,ratio,0,0);ctx.fillStyle="#000";ctx.fillRect(0,0,width,height);const s=Math.min(width/360,height/640);ctx.translate(width/2,height/2);ctx.scale(s,s);
+      for(let i=0;i<900;i++){const seed=i*12.9898,z=(i*.037+time*.52)%1,r=(1-z)*(34+(i%31)*8),a=seed+time*.12*(i%7-3),x=Math.cos(a)*r*.72,y=Math.sin(a)*r*1.27,zr=.5+z*2.5;ctx.fillStyle=`rgb(255 255 255 / ${.08+z*.82})`;ctx.beginPath();ctx.arc(x,y,zr,0,Math.PI*2);ctx.fill();}
+      ctx.strokeStyle="rgb(255 255 255 / .14)";ctx.lineWidth=.7;for(let r=42;r<270;r+=36){ctx.beginPath();ctx.ellipse(0,0,r*.72,r*1.27,0,0,Math.PI*2);ctx.stroke();}ctx.setTransform(ratio,0,0,ratio,0,0);}
+    function frame(){if(!paused)time+=.012;draw();requestAnimationFrame(frame);}canvas.tabIndex=0;canvas.onclick=()=>paused=!paused;canvas.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();paused=!paused;}};resize();addEventListener("resize",resize);addEventListener("orientationchange",resize);frame();
+  </script>
+</body>
+</html>
