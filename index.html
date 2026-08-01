@@ -16,9 +16,15 @@
     .search::placeholder { color:var(--muted); }
     .search:focus { border-color:#777; outline:2px solid var(--focus); outline-offset:1px; }
     .pages { display:grid; gap:4px; }
-    .page-link { display:block; padding:14px 16px; border-radius:10px; color:var(--text); text-decoration:none; background:var(--row); font-weight:600; }
-    .page-link:hover,.page-link:focus-visible { background:var(--hover); outline:none; }
-    .page-link:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+    .page-link, summary { display:block; padding:14px 16px; border-radius:10px; color:var(--text); text-decoration:none; background:var(--row); font-weight:600; }
+    .page-link:hover,.page-link:focus-visible,summary:hover,summary:focus-visible { background:var(--hover); outline:none; }
+    .page-link:focus-visible,summary:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+    details { border-radius:10px; background:#181818; }
+    summary { cursor:pointer; list-style:none; }
+    summary::-webkit-details-marker { display:none; }
+    summary::after { content:"⌄"; float:right; color:var(--muted); transition:transform .16s ease; }
+    details:not([open]) summary::after { transform:rotate(-90deg); }
+    .group-pages { display:grid; gap:4px; padding:4px 0 0 12px; }
     .empty { display:none; margin:16px 4px; color:var(--muted); text-align:center; }
     .main { min-width:0; min-height:100vh; background:var(--bg); }
     iframe { width:100%; height:100vh; display:block; border:0; background:var(--bg); }
@@ -29,9 +35,14 @@
   <main class="app">
     <nav aria-label="Страницы экспериментов">
       <input class="search" id="search" type="search" autocomplete="off" aria-label="Поиск по страницам" placeholder="Поиск">
-      <div class="pages" id="pages">
+      <div class="pages">
         <a class="page-link" href="pages/test.html">Тестовая запись</a>
-        <a class="page-link" href="pages/animation.html">Анимация</a>
+        <details class="group" open data-name="p5.js">
+          <summary>p5.js</summary>
+          <div class="group-pages">
+            <a class="page-link" href="pages/kinetic-form.html">Кинетическая форма</a>
+          </div>
+        </details>
       </div>
       <p class="empty" id="empty">Ничего не найдено</p>
     </nav>
@@ -42,8 +53,10 @@
   <script>
     const search = document.querySelector("#search");
     const links = [...document.querySelectorAll(".page-link")];
+    const groups = [...document.querySelectorAll(".group")];
     const empty = document.querySelector("#empty");
     const detail = document.querySelector("#detail");
+
     search.addEventListener("input", () => {
       const query = search.value.trim().toLocaleLowerCase("ru");
       let count = 0;
@@ -52,12 +65,20 @@
         link.hidden = !visible;
         count += Number(visible);
       });
+      groups.forEach((group) => {
+        const hasVisiblePages = [...group.querySelectorAll(".page-link")].some((link) => !link.hidden);
+        const groupMatches = group.dataset.name.includes(query);
+        group.hidden = !hasVisiblePages && !groupMatches;
+        if (query && !group.hidden) group.open = true;
+      });
       empty.style.display = count ? "none" : "block";
     });
+
     links.forEach((link) => link.addEventListener("click", (event) => {
       if (window.matchMedia("(min-width: 721px)").matches) {
         event.preventDefault();
         detail.src = link.href;
+        detail.title = link.textContent;
       }
     }));
   </script>
