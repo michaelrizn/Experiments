@@ -102,7 +102,7 @@
 
         const x = focal * (dx * camera.right.x + dy * camera.right.y) / depth;
         const y = -focal * (dx * camera.up.x + dy * camera.up.y + dz * camera.up.z) / depth;
-        projected.push({ depth, x, y, tone: Math.min(255, Math.round(point.n * .9)) });
+        projected.push({ depth, x, y, tone: Math.max(0, 255 - point.n) });
         minX = Math.min(minX, x);
         maxX = Math.max(maxX, x);
         minY = Math.min(minY, y);
@@ -130,7 +130,7 @@
     }
 
     function frame() {
-      if (!paused) k += .004;
+      if (!paused) k += .01;
       draw();
       requestAnimationFrame(frame);
     }
