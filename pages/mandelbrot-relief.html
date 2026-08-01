@@ -22,55 +22,39 @@
     </div>
   </main>
   <script>
-    // Геометрия, камера и шаг времени повторяют исходный Processing-скетч.
+    // Рельеф строится в ортографической изометрии: без перспективных разрывов и ухода в глубину.
     const canvas = document.querySelector("#sketch");
-    const gl = canvas.getContext("webgl", { alpha: false, antialias: false, depth: true });
+    const gl = canvas.getContext("webgl", { alpha: false, antialias: false });
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-
-    const sceneSize = 800;
-    const halfSize = sceneSize / 2;
     const maxIterations = 400;
-    let pixelRatio = 1;
+    const maxRelief = 1.15;
     let width = 1;
     let height = 1;
-    let scale = 1;
-    let offsetX = 0;
-    let offsetY = 0;
-    let k = 0;
-    let paused = reducedMotion.matches;
-    let vertexBuffer;
+    let pixelRatio = 1;
+    let sceneScale = 1;
     let pointCount = 0;
-    let pointData;
-    let depthMin = 0;
-    let depthMax = 1;
+    let vertexBuffer;
+    let startedAt = performance.now();
+    let paused = reducedMotion.matches;
+    let pausedAt = 0;
 
     const vertexSource = `
       attribute vec3 aPoint;
-      uniform float uK;
-      uniform float uScale;
-      uniform vec2 uOffset;
       uniform vec2 uResolution;
+      uniform float uScale;
       uniform float uPixelRatio;
+      uniform float uRelief;
       uniform float uPointSize;
-      uniform float uDepthMin;
-      uniform float uDepthMax;
       varying float vTone;
 
       void main() {
-        vec3 eye = vec3(400.0);
-        vec3 right = vec3(0.70710678, -0.70710678, 0.0);
-        vec3 up = vec3(0.40824829, 0.40824829, -0.81649658);
-        vec3 forward = vec3(-0.57735027);
-        vec3 point = vec3(aPoint.xy, -aPoint.z * uK);
-        vec3 delta = point - eye;
-        float depth = dot(delta, forward);
-        float focal = 400.0 / tan(3.14159265 / 6.0);
-        float sourceX = 400.0 + focal * dot(delta, right) / depth;
-        float sourceY = 400.0 + focal * dot(delta, up) / depth;
-        vec2 pixel = (uOffset + vec2(sourceX, sourceY) * uScale) * uPixelRatio;
-
-        float normalizedDepth = (depth - uDepthMin) / max(1.0, uDepthMax - uDepthMin);
-        gl_Position = vec4(pixel.x / uResolution.x * 2.0 - 1.0, 1.0 - pixel.y / uResolution.y * 2.0, normalizedDepth * 1.8 - .9, 1.0);
+        float x = aPoint.x;
+        float y = aPoint.y;
+        float z = aPoint.z * uRelief;
+        float isoX = (x - y) * .70710678;
+        float isoY = (x + y + z * 2.0) * .40824829 - 188.0;
+        vec2 pixel = vec2(uResolution.x * .5 + isoX * uScale, uResolution.y * .5 + isoY * uScale);
+        gl_Position = vec4(pixel.x / uResolution.x * 2.0 - 1.0, 1.0 - pixel.y / uResolution.y * 2.0, 0.0, 1.0);
         gl_PointSize = uPointSize * uPixelRatio;
         vTone = min(1.0, aPoint.z / 255.0);
       }
@@ -81,40 +65,35 @@
       varying float vTone;
 
       void main() {
-        if (vTone < 0.03) discard;
+        if (vTone < .025) discard;
         gl_FragColor = vec4(vec3(vTone), 1.0);
       }
     `;
 
-    function createShader(type, source) {
-      const shader = gl.createShader(type);
-      gl.shaderSource(shader, source);
-      gl.compileShader(shader);
-      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader));
-      return shader;
+    function shader(type, source) {
+      const result = gl.createShader(type);
+      gl.shaderSource(result, source);
+      gl.compileShader(result);
+      if (!gl.getShaderParameter(result, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(result));
+      return result;
     }
 
     const program = gl.createProgram();
-    gl.attachShader(program, createShader(gl.VERTEX_SHADER, vertexSource));
-    gl.attachShader(program, createShader(gl.FRAGMENT_SHADER, fragmentSource));
+    gl.attachShader(program, shader(gl.VERTEX_SHADER, vertexSource));
+    gl.attachShader(program, shader(gl.FRAGMENT_SHADER, fragmentSource));
     gl.linkProgram(program);
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
     gl.useProgram(program);
 
     const locations = {
       point: gl.getAttribLocation(program, "aPoint"),
-      k: gl.getUniformLocation(program, "uK"),
-      scale: gl.getUniformLocation(program, "uScale"),
-      offset: gl.getUniformLocation(program, "uOffset"),
       resolution: gl.getUniformLocation(program, "uResolution"),
+      scale: gl.getUniformLocation(program, "uScale"),
       pixelRatio: gl.getUniformLocation(program, "uPixelRatio"),
+      relief: gl.getUniformLocation(program, "uRelief"),
       pointSize: gl.getUniformLocation(program, "uPointSize"),
-      depthMin: gl.getUniformLocation(program, "uDepthMin"),
-      depthMax: gl.getUniformLocation(program, "uDepthMax"),
     };
 
-    gl.enable(gl.DEPTH_TEST);
-    gl.depthFunc(gl.LEQUAL);
     gl.clearColor(0, 0, 0, 1);
     gl.enableVertexAttribArray(locations.point);
 
@@ -123,8 +102,8 @@
       let imaginary = 0;
       let iteration = 0;
       while (real * real + imaginary * imaginary < 4 && iteration < maxIterations) {
-        const next = real * real - imaginary * imaginary + x / halfSize - 1;
-        imaginary = 2 * real * imaginary + y / halfSize;
+        const next = real * real - imaginary * imaginary + x / 400 - 1;
+        imaginary = 2 * real * imaginary + y / 400;
         real = next;
         iteration += 1;
       }
@@ -132,15 +111,15 @@
     }
 
     function buildPoints() {
-      const density = Math.max(360, Math.min(440, Math.round(Math.sqrt(width * height) / 1.75)));
-      const step = sceneSize / density;
+      const density = Math.max(180, Math.min(260, Math.round(Math.sqrt(width * height) / 2.5)));
       const data = new Float32Array(density * density * 3);
+      const step = 800 / density;
       let index = 0;
 
       for (let row = 0; row < density; row += 1) {
-        const y = -halfSize + row * step;
+        const y = -400 + row * step;
         for (let column = 0; column < density; column += 1) {
-          const x = -halfSize + column * step;
+          const x = -400 + column * step;
           data[index] = x;
           data[index + 1] = y;
           data[index + 2] = iterationsAt(x, y);
@@ -149,51 +128,10 @@
       }
 
       pointCount = density * density;
-      pointData = data;
       if (!vertexBuffer) vertexBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
       gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
       gl.vertexAttribPointer(locations.point, 3, gl.FLOAT, false, 0, 0);
-    }
-
-    // Вписывает именно текущую перспективную проекцию, не меняя оси исходного скетча.
-    function fitProjectedScene() {
-      const eyeX = 400;
-      const eyeY = 400;
-      const eyeZ = 400;
-      const focal = 400 / Math.tan(Math.PI / 6);
-      const padding = Math.max(12, Math.min(width, height) * .035);
-      let minX = Infinity;
-      let minY = Infinity;
-      let maxX = -Infinity;
-      let maxY = -Infinity;
-      let nearDepth = Infinity;
-      let farDepth = -Infinity;
-
-      for (let index = 0; index < pointData.length; index += 3) {
-        const dx = pointData[index] - eyeX;
-        const dy = pointData[index + 1] - eyeY;
-        const dz = -pointData[index + 2] * k - eyeZ;
-        const depth = -(dx + dy + dz) * .57735027;
-        if (depth <= 1) continue;
-
-        const sourceX = 400 + focal * (dx - dy) * .70710678 / depth;
-        const sourceY = 400 + focal * (dx + dy - dz * 2) * .40824829 / depth;
-        minX = Math.min(minX, sourceX);
-        minY = Math.min(minY, sourceY);
-        maxX = Math.max(maxX, sourceX);
-        maxY = Math.max(maxY, sourceY);
-        nearDepth = Math.min(nearDepth, depth);
-        farDepth = Math.max(farDepth, depth);
-      }
-
-      const projectedWidth = Math.max(1, maxX - minX);
-      const projectedHeight = Math.max(1, maxY - minY);
-      scale = Math.min((width - padding * 2) / projectedWidth, (height - padding * 2) / projectedHeight);
-      offsetX = (width - projectedWidth * scale) * .5 - minX * scale;
-      offsetY = (height - projectedHeight * scale) * .5 - minY * scale;
-      depthMin = nearDepth;
-      depthMax = Math.max(nearDepth + 1, farDepth);
     }
 
     function resize() {
@@ -205,45 +143,64 @@
       canvas.height = Math.round(height * pixelRatio);
       gl.viewport(0, 0, canvas.width, canvas.height);
 
+      // Максимальные границы изометрической сцены известны заранее, поэтому масштаб не дрожит.
+      const projectedWidth = 800 * 1.41421356;
+      const projectedHeight = 800 * .81649658 + maxIterations * maxRelief * .81649658;
+      const padding = Math.max(14, Math.min(width, height) * .045);
+      sceneScale = Math.min((width - padding * 2) / projectedWidth, (height - padding * 2) / projectedHeight);
       buildPoints();
-      fitProjectedScene();
+    }
+
+    function currentRelief() {
+      if (paused) return pausedAt;
+      const elapsed = (performance.now() - startedAt) / 1000;
+      // Плавный повторяемый ход высоты вместо бесконечного роста исходного k.
+      return maxRelief * (0.5 - 0.5 * Math.cos(elapsed * 0.36));
     }
 
     function draw() {
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.clear(gl.COLOR_BUFFER_BIT);
       gl.useProgram(program);
-      gl.uniform1f(locations.k, k);
-      gl.uniform1f(locations.scale, scale);
-      gl.uniform2f(locations.offset, offsetX, offsetY);
       gl.uniform2f(locations.resolution, canvas.width, canvas.height);
+      gl.uniform1f(locations.scale, sceneScale);
       gl.uniform1f(locations.pixelRatio, pixelRatio);
-      gl.uniform1f(locations.pointSize, Math.max(.85, Math.min(1.25, Math.min(width, height) / 620)));
-      gl.uniform1f(locations.depthMin, depthMin);
-      gl.uniform1f(locations.depthMax, depthMax);
+      gl.uniform1f(locations.relief, currentRelief());
+      gl.uniform1f(locations.pointSize, Math.max(.75, Math.min(1.1, Math.min(width, height) / 720)));
       gl.drawArrays(gl.POINTS, 0, pointCount);
+      requestAnimationFrame(draw);
     }
 
-    function frame() {
-      if (!paused) k += .01;
-      fitProjectedScene();
-      draw();
-      requestAnimationFrame(frame);
+    function togglePause() {
+      if (paused) {
+        startedAt = performance.now() - Math.acos(1 - pausedAt / maxRelief * 2) / .36 * 1000;
+        paused = false;
+      } else {
+        pausedAt = currentRelief();
+        paused = true;
+      }
     }
 
     canvas.tabIndex = 0;
-    canvas.addEventListener("click", () => { paused = !paused; });
+    canvas.addEventListener("click", togglePause);
     canvas.addEventListener("keydown", event => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        paused = !paused;
+        togglePause();
       }
     });
-    reducedMotion.addEventListener("change", event => { paused = event.matches; });
+    reducedMotion.addEventListener("change", event => {
+      if (event.matches && !paused) {
+        pausedAt = currentRelief();
+        paused = true;
+      } else if (!event.matches && paused) {
+        togglePause();
+      }
+    });
     window.addEventListener("resize", resize);
     window.addEventListener("orientationchange", resize);
 
     resize();
-    frame();
+    draw();
   </script>
 </body>
 </html>
