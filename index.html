@@ -6,71 +6,40 @@
   <meta name="theme-color" content="#101010">
   <title>Experiments</title>
   <style>
-    :root { color-scheme:dark; --bg:#101010; --panel:#161616; --surface:#1d1d1d; --hover:#252525; --active:#292929; --line:#303030; --text:#f4f4f4; --muted:#a0a0a0; --focus:#c6c6c6; }
+    :root { color-scheme:dark; --bg:#101010; --panel:#161616; --row:#1d1d1d; --hover:#262626; --line:#303030; --text:#f4f4f4; --focus:#d5d5d5; }
     * { box-sizing:border-box; }
     html,body { min-height:100%; background:var(--bg); }
-    body { margin:0; color:var(--text); font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-    h1,p { margin:0; }
+    body { margin:0; color:var(--text); font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
     .app { min-height:100vh; max-width:1180px; margin:auto; display:grid; grid-template-columns:360px minmax(0,1fr); background:var(--bg); box-shadow:0 0 40px rgb(0 0 0 / .28); }
-    .sidebar { min-height:100vh; padding:18px 12px; overflow-y:auto; border-right:1px solid var(--line); background:var(--panel); }
-    .sidebar__top { padding:1px 8px 17px; }
-    h1 { font-size:21px; letter-spacing:-.02em; }
-    .search { width:100%; height:42px; margin:0 0 12px; padding:0 14px; border:1px solid transparent; border-radius:10px; color:var(--text); background:#242424; font:inherit; }
-    .search::placeholder { color:#909090; }
-    .search:focus { border-color:#777; outline:2px solid var(--focus); outline-offset:1px; }
-    .records { display:grid; gap:4px; }
-    .record { width:100%; padding:11px; display:grid; grid-template-columns:46px minmax(0,1fr) auto; gap:10px; align-items:center; border-radius:12px; color:inherit; text-decoration:none; background:var(--active); }
-    .record:hover,.record:focus-visible { background:var(--hover); outline:none; }
-    .record:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
-    .avatar { width:46px; height:46px; display:grid; place-items:center; border-radius:50%; color:#111; background:#b8b8b8; font-size:16px; font-weight:700; }
-    .title,.preview { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .title { font-weight:650; }
-    .preview,.time { color:var(--muted); }
-    .preview { margin-top:2px; }
-    .time { align-self:start; padding-top:2px; font-size:12px; }
-    .empty { display:none; padding:18px 8px; color:var(--muted); text-align:center; }
+    nav { min-height:100vh; padding:12px; overflow-y:auto; border-right:1px solid var(--line); background:var(--panel); }
+    .page-link { display:block; padding:14px 16px; border-radius:10px; color:var(--text); text-decoration:none; background:var(--row); font-weight:600; }
+    .page-link:hover,.page-link:focus-visible { background:var(--hover); outline:none; }
+    .page-link:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
     .main { min-width:0; min-height:100vh; background:var(--bg); }
     iframe { width:100%; height:100vh; display:block; border:0; background:var(--bg); }
     @media (max-width:720px) {
       .app { display:block; }
-      .sidebar { min-height:100vh; padding:calc(18px + env(safe-area-inset-top)) 12px 24px; border:0; }
+      nav { min-height:100vh; padding:calc(12px + env(safe-area-inset-top)) 12px 24px; border:0; }
       .main { display:none; }
     }
   </style>
 </head>
 <body>
   <main class="app">
-    <aside class="sidebar" aria-label="Список объектов">
-      <div class="sidebar__top"><h1>Experiments</h1></div>
-      <input class="search" id="search" type="search" autocomplete="off" aria-label="Поиск по объектам" placeholder="Поиск">
-      <nav class="records" aria-label="Объекты">
-        <a class="record" href="pages/test.html" data-name="тестовая запись">
-          <span class="avatar" aria-hidden="true">Т</span>
-          <span><span class="title">Тестовая запись</span><span class="preview">Откройте, чтобы посмотреть объект</span></span>
-          <time class="time" datetime="2026-08-01">сегодня</time>
-        </a>
-      </nav>
-      <p class="empty" id="empty">Ничего не найдено</p>
-    </aside>
-    <section class="main" aria-label="Выбранный объект">
+    <nav aria-label="Страницы экспериментов">
+      <a class="page-link" href="pages/test.html">Тестовая запись</a>
+    </nav>
+    <section class="main" aria-label="Выбранная страница">
       <iframe id="detail" src="pages/test.html" title="Тестовая запись"></iframe>
     </section>
   </main>
   <script>
-    const search = document.querySelector("#search");
-    const record = document.querySelector(".record");
-    const empty = document.querySelector("#empty");
+    const link = document.querySelector(".page-link");
     const detail = document.querySelector("#detail");
-    search.addEventListener("input", () => {
-      const visible = record.dataset.name.includes(search.value.trim().toLowerCase());
-      record.hidden = !visible;
-      empty.style.display = visible ? "none" : "block";
-    });
-    record.addEventListener("click", (event) => {
+    link.addEventListener("click", (event) => {
       if (window.matchMedia("(min-width: 721px)").matches) {
         event.preventDefault();
-        detail.src = record.href;
-        record.focus();
+        detail.src = link.href;
       }
     });
   </script>
