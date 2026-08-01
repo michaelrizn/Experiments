@@ -22,15 +22,14 @@
     </div>
   </main>
   <script>
-    // Адаптивная реализация исходного Processing-скетча с той же камерой и высотой -n * k.
+    // Точная область и камера исходного Processing-скетча; адаптируется только экранная проекция.
     const canvas = document.querySelector("#sketch");
     const context = canvas.getContext("2d", { alpha: false });
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const worldSize = 500;
-    const fractalScale = 400;
+
+    const halfSize = 400;
     const maxIterations = 400;
-    const edgeIterations = 9;
-    const eye = { x: worldSize, y: worldSize, z: worldSize };
+    const eye = { x: 400, y: 400, z: 400 };
     const camera = {
       right: { x: Math.SQRT1_2, y: -Math.SQRT1_2, z: 0 },
       up: { x: -1 / Math.sqrt(6), y: -1 / Math.sqrt(6), z: 2 / Math.sqrt(6) },
@@ -49,8 +48,8 @@
       let imaginary = 0;
       let iteration = 0;
       while (real * real + imaginary * imaginary < 4 && iteration < maxIterations) {
-        const next = real * real - imaginary * imaginary + x / fractalScale - .75;
-        imaginary = 2 * real * imaginary + y / fractalScale;
+        const next = real * real - imaginary * imaginary + x / halfSize - 1;
+        imaginary = 2 * real * imaginary + y / halfSize;
         real = next;
         iteration += 1;
       }
@@ -58,17 +57,13 @@
     }
 
     function buildPoints() {
-      // Детализация зависит от площади экрана, но сохраняет дискретный характер исходных точек.
-      const density = Math.max(105, Math.min(220, Math.round(Math.sqrt(width * height) / 3.7)));
+      const density = Math.max(130, Math.min(260, Math.round(Math.sqrt(width * height) / 3.1)));
       points = [];
       for (let row = 0; row < density; row += 1) {
-        const y = -worldSize + row / (density - 1) * worldSize * 2;
+        const y = -halfSize + row / (density - 1) * halfSize * 2;
         for (let column = 0; column < density; column += 1) {
-          const x = -worldSize + column / (density - 1) * worldSize * 2;
-          const n = iterationsAt(x, y);
-          // Внутренняя часть и далёкая внешняя плоскость не являются рельефом.
-          // Исключаем их, чтобы расчётная сетка не проявлялась прямоугольником.
-          if (n >= edgeIterations && n < maxIterations) points.push({ x, y, n });
+          const x = -halfSize + column / (density - 1) * halfSize * 2;
+          points.push({ x, y, n: iterationsAt(x, y) });
         }
       }
     }
@@ -88,46 +83,33 @@
       context.fillStyle = "#000";
       context.fillRect(0, 0, width, height);
 
+      const focal = height * .866;
+      const sceneScale = Math.min(width / height, 1) * .76;
       const centerX = width * .5;
       const centerY = height * .5;
-      const pointSize = Math.max(.72, Math.min(1.05, Math.min(width, height) / 760));
-
-      // Рисуем дальние точки первыми, как это делает буфер глубины в P3D.
+      const pointSize = Math.max(.65, Math.min(1.05, Math.min(width, height) / 760));
       const projected = [];
+
       for (const point of points) {
-        const z = -point.n * k;
-        const dx = point.x - eye.x;
-        const dy = point.y - eye.y;
+        const x = point.x * sceneScale;
+        const y = point.y * sceneScale;
+        const z = -point.n * k * sceneScale;
+        const dx = x - eye.x;
+        const dy = y - eye.y;
         const dz = z - eye.z;
         const depth = dx * camera.forward.x + dy * camera.forward.y + dz * camera.forward.z;
-        if (depth <= 8) continue;
+        if (depth <= 4) continue;
 
         projected.push({
           depth,
-          u: (dx * camera.right.x + dy * camera.right.y + dz * camera.right.z) / depth,
-          v: -(dx * camera.up.x + dy * camera.up.y + dz * camera.up.z) / depth,
-          tone: Math.min(255, Math.round(92 + 163 * Math.pow(Math.min(point.n, 120) / 120, .42))),
+          x: centerX + focal * (dx * camera.right.x + dy * camera.right.y) / depth,
+          y: centerY - focal * (dx * camera.up.x + dy * camera.up.y + dz * camera.up.z) / depth,
+          tone: Math.min(255, Math.round(point.n * .9)),
         });
       }
 
-      if (!projected.length) return;
-      let minU = Infinity;
-      let maxU = -Infinity;
-      let minV = Infinity;
-      let maxV = -Infinity;
-      for (const point of projected) {
-        minU = Math.min(minU, point.u);
-        maxU = Math.max(maxU, point.u);
-        minV = Math.min(minV, point.v);
-        maxV = Math.max(maxV, point.v);
-      }
-      const fit = Math.min(width * .88 / (maxU - minU), height * .82 / (maxV - minV));
-      const midU = (minU + maxU) * .5;
-      const midV = (minV + maxV) * .5;
       projected.sort((a, b) => b.depth - a.depth);
       for (const point of projected) {
-        point.x = centerX + (point.u - midU) * fit;
-        point.y = centerY + (point.v - midV) * fit;
         if (point.x < -2 || point.x > width + 2 || point.y < -2 || point.y > height + 2) continue;
         context.fillStyle = `rgb(${point.tone} ${point.tone} ${point.tone})`;
         context.fillRect(point.x, point.y, pointSize, pointSize);
@@ -135,7 +117,7 @@
     }
 
     function frame() {
-      if (!paused) k = (k + .01) % 1.6;
+      if (!paused) k += .01;
       draw();
       requestAnimationFrame(frame);
     }
