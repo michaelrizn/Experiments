@@ -83,17 +83,18 @@
       context.fillStyle = "#000";
       context.fillRect(0, 0, width, height);
 
-      const focal = height * .866;
-      const sceneScale = Math.min(width / height, 1) * .76;
+      const virtualSize = 800;
+      const focal = virtualSize * .5 / Math.tan(Math.PI / 6);
+      const screenScale = Math.min(width / virtualSize, height / virtualSize) * .96;
       const centerX = width * .5;
       const centerY = height * .5;
       const pointSize = Math.max(.65, Math.min(1.05, Math.min(width, height) / 760));
       const projected = [];
 
       for (const point of points) {
-        const x = point.x * sceneScale;
-        const y = point.y * sceneScale;
-        const z = -point.n * k * sceneScale;
+        const x = point.x;
+        const y = point.y;
+        const z = -point.n * k;
         const dx = x - eye.x;
         const dy = y - eye.y;
         const dz = z - eye.z;
@@ -102,8 +103,8 @@
 
         projected.push({
           depth,
-          x: centerX + focal * (dx * camera.right.x + dy * camera.right.y) / depth,
-          y: centerY - focal * (dx * camera.up.x + dy * camera.up.y + dz * camera.up.z) / depth,
+          x: centerX + screenScale * focal * (dx * camera.right.x + dy * camera.right.y) / depth,
+          y: centerY - screenScale * focal * (dx * camera.up.x + dy * camera.up.y + dz * camera.up.z) / depth,
           tone: Math.min(255, Math.round(point.n * .9)),
         });
       }
@@ -117,7 +118,7 @@
     }
 
     function frame() {
-      if (!paused) k = (k + .004) % .82;
+      if (!paused) k += .004;
       draw();
       requestAnimationFrame(frame);
     }
