@@ -6,42 +6,60 @@
   <meta name="theme-color" content="#101010">
   <title>Experiments</title>
   <style>
-    :root { color-scheme:dark; --bg:#101010; --panel:#161616; --row:#1d1d1d; --hover:#262626; --line:#303030; --text:#f4f4f4; --focus:#d5d5d5; }
+    :root { color-scheme:dark; --bg:#101010; --panel:#161616; --row:#1d1d1d; --hover:#262626; --line:#303030; --text:#f4f4f4; --muted:#929292; --focus:#d5d5d5; }
     * { box-sizing:border-box; }
     html,body { min-height:100%; background:var(--bg); }
     body { margin:0; color:var(--text); font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
     .app { min-height:100vh; max-width:1180px; margin:auto; display:grid; grid-template-columns:360px minmax(0,1fr); background:var(--bg); box-shadow:0 0 40px rgb(0 0 0 / .28); }
     nav { min-height:100vh; padding:12px; overflow-y:auto; border-right:1px solid var(--line); background:var(--panel); }
+    .search { width:100%; height:42px; margin:0 0 12px; padding:0 14px; border:1px solid transparent; border-radius:10px; color:var(--text); background:#242424; font:inherit; }
+    .search::placeholder { color:var(--muted); }
+    .search:focus { border-color:#777; outline:2px solid var(--focus); outline-offset:1px; }
+    .pages { display:grid; gap:4px; }
     .page-link { display:block; padding:14px 16px; border-radius:10px; color:var(--text); text-decoration:none; background:var(--row); font-weight:600; }
     .page-link:hover,.page-link:focus-visible { background:var(--hover); outline:none; }
     .page-link:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+    .empty { display:none; margin:16px 4px; color:var(--muted); text-align:center; }
     .main { min-width:0; min-height:100vh; background:var(--bg); }
     iframe { width:100%; height:100vh; display:block; border:0; background:var(--bg); }
-    @media (max-width:720px) {
-      .app { display:block; }
-      nav { min-height:100vh; padding:calc(12px + env(safe-area-inset-top)) 12px 24px; border:0; }
-      .main { display:none; }
-    }
+    @media (max-width:720px) { .app { display:block; } nav { min-height:100vh; padding:calc(12px + env(safe-area-inset-top)) 12px 24px; border:0; } .main { display:none; } }
   </style>
 </head>
 <body>
   <main class="app">
     <nav aria-label="Страницы экспериментов">
-      <a class="page-link" href="pages/test.html">Тестовая запись</a>
+      <input class="search" id="search" type="search" autocomplete="off" aria-label="Поиск по страницам" placeholder="Поиск">
+      <div class="pages" id="pages">
+        <a class="page-link" href="pages/test.html">Тестовая запись</a>
+        <a class="page-link" href="pages/animation.html">Анимация</a>
+      </div>
+      <p class="empty" id="empty">Ничего не найдено</p>
     </nav>
     <section class="main" aria-label="Выбранная страница">
       <iframe id="detail" src="pages/test.html" title="Тестовая запись"></iframe>
     </section>
   </main>
   <script>
-    const link = document.querySelector(".page-link");
+    const search = document.querySelector("#search");
+    const links = [...document.querySelectorAll(".page-link")];
+    const empty = document.querySelector("#empty");
     const detail = document.querySelector("#detail");
-    link.addEventListener("click", (event) => {
+    search.addEventListener("input", () => {
+      const query = search.value.trim().toLocaleLowerCase("ru");
+      let count = 0;
+      links.forEach((link) => {
+        const visible = link.textContent.toLocaleLowerCase("ru").includes(query);
+        link.hidden = !visible;
+        count += Number(visible);
+      });
+      empty.style.display = count ? "none" : "block";
+    });
+    links.forEach((link) => link.addEventListener("click", (event) => {
       if (window.matchMedia("(min-width: 721px)").matches) {
         event.preventDefault();
         detail.src = link.href;
       }
-    });
+    }));
   </script>
 </body>
 </html>
