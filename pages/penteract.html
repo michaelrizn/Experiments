@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>Пентеракт</title>
+  <style>
+    :root { color-scheme:dark; background:#000; }
+    * { box-sizing:border-box; }
+    html,body { min-height:100%; margin:0; background:#000; }
+    main { min-height:calc(100dvh - 64px); display:grid; place-items:center; padding:12px; overflow:hidden; }
+    .canvas-frame { width:min(100%, 1100px); aspect-ratio:16 / 9; }
+    canvas { display:block; width:100%; height:100%; background:#000; touch-action:manipulation; }
+  </style>
+  <script src="../assets/toolbar.js" defer></script>
+</head>
+<body data-title="Пентеракт" data-back="../">
+  <main>
+    <div class="canvas-frame">
+      <canvas id="sketch" aria-label="Анимированная проекция пятимерного гиперкуба"></canvas>
+    </div>
+  </main>
+  <script>
+    const canvas = document.querySelector("#sketch");
+    const ctx = canvas.getContext("2d", { alpha: false });
+    let pixelRatio = 1;
+    let viewWidth = 700;
+    let viewHeight = 400;
+    const vertices = [];
+    const edges = [];
+    let time = 0;
+    let paused = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    for (let index = 0; index < 32; index++) {
+      vertices.push([
+        index & 1 ? 1 : -1,
+        index & 2 ? 1 : -1,
+        index & 4 ? 1 : -1,
+        index & 8 ? 1 : -1,
+        index & 16 ? 1 : -1,
+      ]);
+      for (let axis = 0; axis < 5; axis++) {
+        const neighbour = index ^ (1 << axis);
+        if (index < neighbour) edges.push([index, neighbour]);
+      }
+    }
+
+    function setResolution() {
+      const bounds = canvas.getBoundingClientRect();
+      pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      viewWidth = Math.max(1, Math.round(bounds.width));
+      viewHeight = Math.max(1, Math.round(bounds.height));
+      canvas.width = Math.round(viewWidth * pixelRatio);
+      canvas.height = Math.round(viewHeight * pixelRatio);
+    }
+
+    function rotate(point, first, second, angle) {
+      const result = [...point];
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      result[first] = point[first] * cos - point[second] * sin;
+      result[second] = point[first] * sin + point[second] * cos;
+      return result;
+    }
+
+    function project(point) {
+      let rotated = rotate(point, 0, 4, time * .51);
+      rotated = rotate(rotated, 1, 4, time * .34 + .8);
+      rotated = rotate(rotated, 2, 4, time * .23);
+      rotated = rotate(rotated, 3, 4, time * .19 + 1.2);
+      const fifthPerspective = 4.5 / (4.5 - rotated[4]);
+
+      rotated = [
+        rotated[0] * fifthPerspective,
+        rotated[1] * fifthPerspective,
+        rotated[2] * fifthPerspective,
+        rotated[3] * fifthPerspective,
+      ];
+      rotated = rotate(rotated, 0, 3, time * .67 + .2);
+      rotated = rotate(rotated, 1, 3, time * .43 + .9);
+      rotated = rotate(rotated, 2, 3, time * .29);
+      const fourthPerspective = 3.5 / (3.5 - rotated[3]);
+      const x = rotated[0] * fourthPerspective;
+      const y = rotated[1] * fourthPerspective;
+      const z = rotated[2] * fourthPerspective;
+      const tilt = -.38;
+      const tiltedY = y * Math.cos(tilt) - z * Math.sin(tilt);
+      const tiltedZ = y * Math.sin(tilt) + z * Math.cos(tilt);
+      const depth = 4.4 / (4.4 - tiltedZ);
+      return { x: x * depth, y: tiltedY * depth, z: tiltedZ, scale: depth };
+    }
+
+    function draw() {
+      ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, viewWidth, viewHeight);
+
+      const points = vertices.map(project);
+      const padding = Math.max(20, Math.min(viewWidth, viewHeight) * .065);
+      const minX = Math.min(...points.map(point => point.x));
+      const maxX = Math.max(...points.map(point => point.x));
+      const minY = Math.min(...points.map(point => point.y));
+      const maxY = Math.max(...points.map(point => point.y));
+      const fitScale = Math.min(
+        (viewWidth - padding * 2) / (maxX - minX),
+        (viewHeight - padding * 2) / (maxY - minY),
+      );
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+
+      for (const point of points) {
+        point.x = (point.x - centerX) * fitScale + viewWidth / 2;
+        point.y = (point.y - centerY) * fitScale + viewHeight / 2;
+        point.scale *= fitScale;
+      }
+
+      const orderedEdges = edges
+        .map(([from, to]) => ({ from: points[from], to: points[to], depth: (points[from].z + points[to].z) / 2 }))
+        .sort((first, second) => first.depth - second.depth);
+
+      ctx.lineCap = "round";
+      for (const edge of orderedEdges) {
+        const glow = Math.max(.11, Math.min(.9, (edge.depth + 2.3) / 4.8));
+        ctx.strokeStyle = `rgb(222 235 255 / ${glow})`;
+        ctx.lineWidth = 1 + edge.from.scale * .7;
+        ctx.beginPath();
+        ctx.moveTo(edge.from.x, edge.from.y);
+        ctx.lineTo(edge.to.x, edge.to.y);
+        ctx.stroke();
+      }
+
+      points.sort((first, second) => first.z - second.z);
+      for (const point of points) {
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 2.8 * point.scale, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function frame() {
+      if (!paused) time += .011;
+      draw();
+      requestAnimationFrame(frame);
+    }
+
+    canvas.addEventListener("click", () => { paused = !paused; });
+    canvas.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); paused = !paused; }
+    });
+    canvas.tabIndex = 0;
+    canvas.setAttribute("aria-label", "Анимированная проекция пятимерного гиперкуба. Нажмите, чтобы остановить или запустить.");
+    setResolution();
+    window.addEventListener("resize", setResolution);
+    window.addEventListener("orientationchange", setResolution);
+    frame();
+  </script>
+</body>
+</html>
