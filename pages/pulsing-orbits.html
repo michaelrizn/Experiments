@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#090909">
-  <title>Волновая хризантема</title>
+  <title>Тройной резонанс</title>
   <style>
     :root { color-scheme:dark; background:#090909; }
     * { box-sizing:border-box; }
@@ -14,9 +14,9 @@
   </style>
   <script src="../assets/toolbar.js" defer></script>
 </head>
-<body data-title="Волновая хризантема" data-back="../">
+<body data-title="Тройной резонанс" data-back="../">
   <main>
-    <canvas id="sketch" aria-label="Анимированная генеративная композиция"></canvas>
+    <canvas id="sketch" aria-label="Анимированная композиция из пульсирующих орбит"></canvas>
   </main>
   <script>
     const canvas = document.querySelector("#sketch");
@@ -36,30 +36,35 @@
       ctx.fillStyle = "#090909";
       ctx.fillRect(0, 0, size, size);
       ctx.fillStyle = "rgba(255, 255, 255, .376)";
+
       for (let i = 10000; i > 0; i--) {
-        const y = i / 353;
-        const k = ((y < 9 ? 9 : 5) + Math.cos(y * 31 - time)) * Math.cos(i / 44);
-        const e = y / 9 - 14;
-        const d = Math.hypot(k, e) / 1.6;
-        const c = d - time / 2;
-        const x = (d * 9 + k * k) * Math.cos(c) + 200;
-        const py = (55 + d * 9) * Math.sin(c / 3) + 4 * Math.sin(k * 2) + y / 29 * k * (e + 3 * Math.sin(e * 4 - d * 4 + time * 3)) + 200;
-        ctx.fillRect(x, py, 1, 1);
+        const m = (i % 3) * 4;
+        const k = 9 * Math.cos(i / 81);
+        const e = i / 461 - 11;
+        const d = Math.hypot(k, e) ** 4 / 40000 + 1.5 + Math.sin(time / 2 + m) / 4;
+        const q = 89 - e * Math.sin(k) + k * (4 + 2 * Math.sin(d * 9 + e / 9 - time));
+        const c = d + Math.sin(time - d * 4) / 9 - time / 9 + m;
+        const x = q * Math.cos(c) + 200;
+        const y = (q + 30) * Math.sin(c) + 200;
+        ctx.fillRect(x, y, 1, 1);
       }
     }
 
     function frame() {
-      if (!paused) time += Math.PI / 80;
+      if (!paused) time += Math.PI / 60;
       draw();
       requestAnimationFrame(frame);
     }
 
     canvas.addEventListener("click", () => { paused = !paused; });
     canvas.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); paused = !paused; }
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        paused = !paused;
+      }
     });
     canvas.tabIndex = 0;
-    canvas.setAttribute("aria-label", "Анимированная генеративная композиция. Нажмите, чтобы остановить или запустить.");
+    canvas.setAttribute("aria-label", "Анимированная композиция из пульсирующих орбит. Нажмите, чтобы остановить или запустить.");
     setResolution();
     frame();
   </script>
