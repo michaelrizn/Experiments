@@ -22,13 +22,15 @@
     </div>
   </main>
   <script>
-    // Точная область и камера исходного Processing-скетча; адаптируется только экранная проекция.
+    // Геометрия, камера и шаг времени повторяют исходный Processing-скетч.
     const canvas = document.querySelector("#sketch");
     const context = canvas.getContext("2d", { alpha: false });
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
-    const halfSize = 400;
+    const sceneSize = 800;
+    const halfSize = sceneSize / 2;
     const maxIterations = 400;
+    const focal = halfSize / Math.tan(Math.PI / 6);
     const eye = { x: 400, y: 400, z: 400 };
     const camera = {
       right: { x: Math.SQRT1_2, y: -Math.SQRT1_2, z: 0 },
@@ -39,6 +41,9 @@
     let pixelRatio = 1;
     let width = 1;
     let height = 1;
+    let scale = 1;
+    let offsetX = 0;
+    let offsetY = 0;
     let points = [];
     let k = 0;
     let paused = reducedMotion.matches;
@@ -57,12 +62,15 @@
     }
 
     function buildPoints() {
-      const density = Math.max(130, Math.min(260, Math.round(Math.sqrt(width * height) / 3.1)));
+      // Плотная сетка сохраняет непрерывный рельеф, но остаётся отзывчивой на мобильных.
+      const density = Math.max(360, Math.min(440, Math.round(Math.sqrt(width * height) / 1.75)));
+      const step = sceneSize / density;
       points = [];
+
       for (let row = 0; row < density; row += 1) {
-        const y = -halfSize + row / (density - 1) * halfSize * 2;
+        const y = -halfSize + row * step;
         for (let column = 0; column < density; column += 1) {
-          const x = -halfSize + column / (density - 1) * halfSize * 2;
+          const x = -halfSize + column * step;
           points.push({ x, y, n: iterationsAt(x, y) });
         }
       }
@@ -75,6 +83,11 @@
       height = Math.max(1, Math.round(bounds.height));
       canvas.width = Math.round(width * pixelRatio);
       canvas.height = Math.round(height * pixelRatio);
+
+      const padding = Math.max(12, Math.min(width, height) * .035);
+      scale = Math.min((width - padding * 2) / sceneSize, (height - padding * 2) / sceneSize);
+      offsetX = (width - sceneSize * scale) * .5;
+      offsetY = (height - sceneSize * scale) * .5;
       buildPoints();
     }
 
@@ -83,14 +96,7 @@
       context.fillStyle = "#000";
       context.fillRect(0, 0, width, height);
 
-      // Проецируем сцену так же, как Processing P3D, затем вписываем её
-      // фактические границы в адаптивный широкий canvas без изменения геометрии.
-      const focal = 800 * .5 / Math.tan(Math.PI / 6);
-      const projected = [];
-      let minX = Infinity;
-      let maxX = -Infinity;
-      let minY = Infinity;
-      let maxY = -Infinity;
+      const pointSize = Math.max(.75, Math.min(1.1, Math.min(width, height) / 680));
 
       for (const point of points) {
         const z = -point.n * k;
@@ -100,32 +106,13 @@
         const depth = dx * camera.forward.x + dy * camera.forward.y + dz * camera.forward.z;
         if (depth <= 4) continue;
 
-        const x = focal * (dx * camera.right.x + dy * camera.right.y) / depth;
-        const y = -focal * (dx * camera.up.x + dy * camera.up.y + dz * camera.up.z) / depth;
-        projected.push({ depth, x, y, tone: Math.max(0, 255 - point.n) });
-        minX = Math.min(minX, x);
-        maxX = Math.max(maxX, x);
-        minY = Math.min(minY, y);
-        maxY = Math.max(maxY, y);
-      }
+        const sourceX = halfSize + focal * (dx * camera.right.x + dy * camera.right.y) / depth;
+        const sourceY = halfSize - focal * (dx * camera.up.x + dy * camera.up.y + dz * camera.up.z) / depth;
+        const tone = Math.min(255, point.n);
+        if (tone < 8) continue;
 
-      if (!projected.length) return;
-
-      const padding = Math.max(14, Math.min(width, height) * .055);
-      const scale = Math.min(
-        (width - padding * 2) / Math.max(1, maxX - minX),
-        (height - padding * 2) / Math.max(1, maxY - minY)
-      );
-      const offsetX = (width - (maxX - minX) * scale) * .5 - minX * scale;
-      const offsetY = (height - (maxY - minY) * scale) * .5 - minY * scale;
-      const pointSize = Math.max(.65, Math.min(1.05, Math.min(width, height) / 760));
-
-      projected.sort((a, b) => b.depth - a.depth);
-      for (const point of projected) {
-        const x = offsetX + point.x * scale;
-        const y = offsetY + point.y * scale;
-        context.fillStyle = `rgb(${point.tone} ${point.tone} ${point.tone})`;
-        context.fillRect(x, y, pointSize, pointSize);
+        context.fillStyle = `rgb(${tone} ${tone} ${tone})`;
+        context.fillRect(offsetX + sourceX * scale, offsetY + sourceY * scale, pointSize, pointSize);
       }
     }
 
