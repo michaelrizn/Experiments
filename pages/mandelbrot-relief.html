@@ -83,37 +83,49 @@
       context.fillStyle = "#000";
       context.fillRect(0, 0, width, height);
 
-      const virtualSize = 800;
-      const focal = virtualSize * .5 / Math.tan(Math.PI / 6);
-      const screenScale = Math.min(width / virtualSize, height / virtualSize) * .96;
-      const centerX = width * .5;
-      const centerY = height * .5;
-      const pointSize = Math.max(.65, Math.min(1.05, Math.min(width, height) / 760));
+      // Проецируем сцену так же, как Processing P3D, затем вписываем её
+      // фактические границы в адаптивный широкий canvas без изменения геометрии.
+      const focal = 800 * .5 / Math.tan(Math.PI / 6);
       const projected = [];
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minY = Infinity;
+      let maxY = -Infinity;
 
       for (const point of points) {
-        const x = point.x;
-        const y = point.y;
         const z = -point.n * k;
-        const dx = x - eye.x;
-        const dy = y - eye.y;
+        const dx = point.x - eye.x;
+        const dy = point.y - eye.y;
         const dz = z - eye.z;
         const depth = dx * camera.forward.x + dy * camera.forward.y + dz * camera.forward.z;
         if (depth <= 4) continue;
 
-        projected.push({
-          depth,
-          x: centerX + screenScale * focal * (dx * camera.right.x + dy * camera.right.y) / depth,
-          y: centerY - screenScale * focal * (dx * camera.up.x + dy * camera.up.y + dz * camera.up.z) / depth,
-          tone: Math.min(255, Math.round(point.n * .9)),
-        });
+        const x = focal * (dx * camera.right.x + dy * camera.right.y) / depth;
+        const y = -focal * (dx * camera.up.x + dy * camera.up.y + dz * camera.up.z) / depth;
+        projected.push({ depth, x, y, tone: Math.min(255, Math.round(point.n * .9)) });
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
       }
+
+      if (!projected.length) return;
+
+      const padding = Math.max(14, Math.min(width, height) * .055);
+      const scale = Math.min(
+        (width - padding * 2) / Math.max(1, maxX - minX),
+        (height - padding * 2) / Math.max(1, maxY - minY)
+      );
+      const offsetX = (width - (maxX - minX) * scale) * .5 - minX * scale;
+      const offsetY = (height - (maxY - minY) * scale) * .5 - minY * scale;
+      const pointSize = Math.max(.65, Math.min(1.05, Math.min(width, height) / 760));
 
       projected.sort((a, b) => b.depth - a.depth);
       for (const point of projected) {
-        if (point.x < -2 || point.x > width + 2 || point.y < -2 || point.y > height + 2) continue;
+        const x = offsetX + point.x * scale;
+        const y = offsetY + point.y * scale;
         context.fillStyle = `rgb(${point.tone} ${point.tone} ${point.tone})`;
-        context.fillRect(point.x, point.y, pointSize, pointSize);
+        context.fillRect(x, y, pointSize, pointSize);
       }
     }
 
