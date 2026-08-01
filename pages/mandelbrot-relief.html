@@ -6,12 +6,12 @@
   <meta name="theme-color" content="#000000">
   <title>Рельеф Мандельброта</title>
   <style>
-    :root { color-scheme:dark; background:#000; }
-    * { box-sizing:border-box; }
-    html,body { min-height:100%; margin:0; background:#000; }
-    main { min-height:calc(100dvh - 64px); display:grid; place-items:center; padding:12px; overflow:hidden; }
-    .canvas-frame { width:min(100%, 1100px); aspect-ratio:16 / 9; }
-    canvas { display:block; width:100%; height:100%; background:#000; touch-action:manipulation; }
+    :root { color-scheme: dark; background: #000; }
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; margin: 0; background: #000; }
+    main { min-height: calc(100dvh - 64px); display: grid; place-items: center; padding: 12px; overflow: hidden; }
+    .canvas-frame { width: min(100%, 1100px); aspect-ratio: 16 / 10; }
+    canvas { display: block; width: 100%; height: 100%; background: #000; touch-action: manipulation; }
   </style>
   <script src="../assets/toolbar.js" defer></script>
 </head>
@@ -26,11 +26,47 @@
     const canvas = document.querySelector("#sketch");
     const ctx = canvas.getContext("2d", { alpha: false });
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const maximumIterations = 110;
     let pixelRatio = 1;
-    let viewWidth = 700;
-    let viewHeight = 400;
-    let depth = 0;
+    let viewWidth = 1;
+    let viewHeight = 1;
+    let terrain = [];
+    let phase = 0;
     let paused = reducedMotion.matches;
+
+    function iterationsAt(real, imaginary) {
+      let realPart = 0;
+      let imaginaryPart = 0;
+      let iteration = 0;
+      while (realPart * realPart + imaginaryPart * imaginaryPart < 4 && iteration < maximumIterations) {
+        const next = realPart * realPart - imaginaryPart * imaginaryPart + real;
+        imaginaryPart = 2 * realPart * imaginaryPart + imaginary;
+        realPart = next;
+        iteration += 1;
+      }
+      return iteration;
+    }
+
+    function buildTerrain() {
+      const columns = Math.max(150, Math.min(260, Math.round(viewWidth / 4.3)));
+      const rows = Math.max(88, Math.min(155, Math.round(viewHeight / 4.2)));
+      terrain = [];
+
+      for (let row = 0; row < rows; row += 1) {
+        const imaginary = row / (rows - 1) * 2.6 - 1.3;
+        for (let column = 0; column < columns; column += 1) {
+          const real = column / (columns - 1) * 3.15 - 2.25;
+          const iteration = iterationsAt(real, imaginary);
+          terrain.push({
+            column: column / (columns - 1) - .5,
+            row: row / (rows - 1) - .5,
+            height: iteration / maximumIterations,
+            visible: iteration < maximumIterations,
+            brightness: Math.min(255, 150 + iteration * 1.1),
+          });
+        }
+      }
+    }
 
     function setResolution() {
       const bounds = canvas.getBoundingClientRect();
@@ -39,19 +75,7 @@
       viewHeight = Math.max(1, Math.round(bounds.height));
       canvas.width = Math.round(viewWidth * pixelRatio);
       canvas.height = Math.round(viewHeight * pixelRatio);
-    }
-
-    function mandelbrot(real, imaginary) {
-      let r = 0;
-      let i = 0;
-      let n = 0;
-      while (r * r + i * i < 4 && n < 160) {
-        const next = r * r - i * i + real;
-        i = 2 * r * i + imaginary;
-        r = next;
-        n += 1;
-      }
-      return n;
+      buildTerrain();
     }
 
     function draw() {
@@ -59,64 +83,28 @@
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, viewWidth, viewHeight);
 
-      const columns = Math.max(86, Math.min(170, Math.round(viewWidth / 5.2)));
-      const rows = Math.max(58, Math.min(112, Math.round(viewHeight / 5.2)));
-      const points = [];
-      const rotation = -.72;
-      const cosRotation = Math.cos(rotation);
-      const sinRotation = Math.sin(rotation);
-      const lift = Math.sin(depth * .55) * .18;
+      const unit = Math.min(viewWidth / 16, viewHeight / 10);
+      const centerX = viewWidth * .51;
+      const horizonY = viewHeight * .68;
+      const yaw = -.16 + Math.sin(phase) * .08;
+      const pointSize = Math.max(.65, Math.min(1.2, unit / 48));
 
-      for (let row = 0; row < rows; row += 1) {
-        const imaginary = (row / (rows - 1)) * 2.5 - 1.25;
-        for (let column = 0; column < columns; column += 1) {
-          const real = (column / (columns - 1)) * 3.4 - 2.35;
-          const iterations = mandelbrot(real, imaginary);
-          const planeX = (real + .42) * 220;
-          const planeY = imaginary * 220;
-          const planeZ = -iterations * (2.15 + lift) - depth * 19;
-          const turnedX = planeX * cosRotation - planeZ * sinRotation;
-          const turnedZ = planeX * sinRotation + planeZ * cosRotation;
-          const tiltedY = planeY + turnedZ * .28;
-          const perspective = 2.6 / Math.max(.8, 2.6 - turnedZ / 540);
-          points.push({
-            x: turnedX * perspective,
-            y: tiltedY * perspective,
-            tone: iterations === 160 ? 13 : 118 + Math.round(Math.min(iterations, 88) * 1.35),
-            alpha: iterations === 160 ? .24 : .48 + Math.min(iterations, 110) / 330,
-          });
-        }
-      }
-
-      const padding = Math.max(20, Math.min(viewWidth, viewHeight) * .065);
-      let minX = Infinity;
-      let maxX = -Infinity;
-      let minY = Infinity;
-      let maxY = -Infinity;
-      for (const point of points) {
-        minX = Math.min(minX, point.x);
-        maxX = Math.max(maxX, point.x);
-        minY = Math.min(minY, point.y);
-        maxY = Math.max(maxY, point.y);
-      }
-      const scale = Math.min(
-        (viewWidth - padding * 2) / (maxX - minX),
-        (viewHeight - padding * 2) / (maxY - minY),
-      );
-      const centerX = (minX + maxX) / 2;
-      const centerY = (minY + maxY) / 2;
-      const pointSize = Math.max(.48, Math.min(1.15, Math.min(viewWidth, viewHeight) / 650));
-
-      for (const point of points) {
-        const screenX = (point.x - centerX) * scale + viewWidth / 2;
-        const screenY = (point.y - centerY) * scale + viewHeight / 2;
-        ctx.fillStyle = `rgb(${point.tone} ${point.tone} ${point.tone} / ${point.alpha})`;
+      for (const point of terrain) {
+        if (!point.visible) continue;
+        const shiftedX = point.column * Math.cos(yaw) - point.row * Math.sin(yaw);
+        const shiftedZ = point.column * Math.sin(yaw) + point.row * Math.cos(yaw);
+        const screenX = centerX + (shiftedX * 13.4 + shiftedZ * 3.8) * unit;
+        const screenY = horizonY + (shiftedZ * 3.35 - point.height * 5.4) * unit;
+        if (screenX < 0 || screenX > viewWidth || screenY < 0 || screenY > viewHeight) continue;
+        const distanceFade = .58 + (point.row + .5) * .42;
+        const tone = Math.round(point.brightness * distanceFade);
+        ctx.fillStyle = `rgb(${tone} ${tone} ${tone})`;
         ctx.fillRect(screenX, screenY, pointSize, pointSize);
       }
     }
 
     function frame() {
-      if (!paused) depth = (depth + .012) % 11.4;
+      if (!paused) phase += .006;
       draw();
       requestAnimationFrame(frame);
     }
