@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>Вихревые нити</title>
+  <style>
+    :root { color-scheme:dark; background:#000; } * { box-sizing:border-box; } html,body { min-height:100%; margin:0; background:#000; }
+    main { min-height:calc(100dvh - 64px); display:grid; place-items:center; padding:12px; overflow:hidden; } .canvas-frame { width:min(100%, 1100px); aspect-ratio:16 / 9; } canvas { display:block; width:100%; height:100%; background:#000; touch-action:manipulation; }
+  </style>
+  <script src="../assets/toolbar.js" defer></script>
+</head>
+<body data-title="Вихревые нити" data-back="../">
+  <main><div class="canvas-frame"><canvas id="sketch" aria-label="Анимированные вихревые нити"></canvas></div></main>
+  <script>
+    const canvas = document.querySelector("#sketch"); const ctx = canvas.getContext("2d", { alpha:false });
+    let ratio = 1, width = 800, height = 450, time = 0, paused = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    function resize() { const b = canvas.getBoundingClientRect(); ratio = Math.min(devicePixelRatio || 1, 2); width = Math.max(1, Math.round(b.width)); height = Math.max(1, Math.round(b.height)); canvas.width = width * ratio; canvas.height = height * ratio; }
+    function draw() {
+      ctx.setTransform(ratio,0,0,ratio,0,0); ctx.fillStyle="#000"; ctx.fillRect(0,0,width,height); const s = Math.min(width / 800, height / 450);
+      ctx.lineCap = "round";
+      for (let strand = 0; strand < 92; strand++) {
+        const seed = strand * 2.399; ctx.beginPath();
+        for (let step = 0; step < 105; step++) {
+          const u = step / 104 * 2 - 1;
+          const radius = 34 + 150 * (1 - Math.abs(u)) + 16 * Math.sin(time * 2 + seed);
+          const angle = seed + u * 8.7 + time * (1.4 + Math.sin(seed) * .12);
+          const x = Math.cos(angle) * radius + u * 144;
+          const y = u * 172 + Math.sin(angle * 2 + time * 2) * 18;
+          const depth = Math.sin(angle) * radius;
+          const px = width / 2 + x * s; const py = height / 2 + y * s * .88;
+          if (!step) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+          if (step === 104) { ctx.strokeStyle = `rgb(255 255 255 / ${.08 + (depth + 200) / 800})`; ctx.lineWidth = .55; ctx.stroke(); }
+        }
+      }
+    }
+    function frame() { if (!paused) time += .009; draw(); requestAnimationFrame(frame); }
+    canvas.tabIndex=0; canvas.onclick=()=>paused=!paused; canvas.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();paused=!paused;}}; resize(); addEventListener("resize",resize); addEventListener("orientationchange",resize); frame();
+  </script>
+</body>
+</html>
