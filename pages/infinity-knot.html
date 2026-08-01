@@ -39,7 +39,7 @@
         points.push({ x:x1 * scale, y:y1 * scale, z:z2, a:.18 + scale * .55 });
       }
       points.sort((a,b) => a.z - b.z);
-      const scene = Math.min(width / 430, height / 330);
+      const scene = Math.min(width / 470, height / 440);
       for (const p of points) { ctx.globalAlpha = Math.min(.9, p.a); ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(width / 2 + p.x * scene, height / 2 + p.y * scene, .6, 0, Math.PI * 2); ctx.fill(); }
       ctx.globalAlpha = 1;
     }
