@@ -22,116 +22,62 @@
     </div>
   </main>
   <script>
-    // Рельеф строится в ортографической изометрии: без перспективных разрывов и ухода в глубину.
+    // Ортографическая изометрия сохраняет исходный разворот, но исключает перспективное схлопывание.
     const canvas = document.querySelector("#sketch");
-    const gl = canvas.getContext("webgl", { alpha: false, antialias: false });
+    const context = canvas.getContext("2d", { alpha: false });
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     const maxIterations = 400;
     const maxRelief = 1.15;
+    const frameInterval = 1000 / 30;
     let width = 1;
     let height = 1;
     let pixelRatio = 1;
     let sceneScale = 1;
-    let pointCount = 0;
-    let vertexBuffer;
+    let points = [];
     let startedAt = performance.now();
     let paused = reducedMotion.matches;
     let pausedAt = 0;
-
-    const vertexSource = `
-      attribute vec3 aPoint;
-      uniform vec2 uResolution;
-      uniform float uScale;
-      uniform float uPixelRatio;
-      uniform float uRelief;
-      uniform float uPointSize;
-      varying float vTone;
-
-      void main() {
-        float x = aPoint.x;
-        float y = aPoint.y;
-        float z = aPoint.z * uRelief;
-        float isoX = (x - y) * .70710678;
-        float isoY = (x + y + z * 2.0) * .40824829 - 188.0;
-        vec2 pixel = vec2(uResolution.x * .5 + isoX * uScale, uResolution.y * .5 + isoY * uScale);
-        gl_Position = vec4(pixel.x / uResolution.x * 2.0 - 1.0, 1.0 - pixel.y / uResolution.y * 2.0, 0.0, 1.0);
-        gl_PointSize = uPointSize * uPixelRatio;
-        vTone = min(1.0, aPoint.z / 255.0);
-      }
-    `;
-
-    const fragmentSource = `
-      precision mediump float;
-      varying float vTone;
-
-      void main() {
-        if (vTone < .025) discard;
-        gl_FragColor = vec4(vec3(vTone), 1.0);
-      }
-    `;
-
-    function shader(type, source) {
-      const result = gl.createShader(type);
-      gl.shaderSource(result, source);
-      gl.compileShader(result);
-      if (!gl.getShaderParameter(result, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(result));
-      return result;
-    }
-
-    const program = gl.createProgram();
-    gl.attachShader(program, shader(gl.VERTEX_SHADER, vertexSource));
-    gl.attachShader(program, shader(gl.FRAGMENT_SHADER, fragmentSource));
-    gl.linkProgram(program);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
-    gl.useProgram(program);
-
-    const locations = {
-      point: gl.getAttribLocation(program, "aPoint"),
-      resolution: gl.getUniformLocation(program, "uResolution"),
-      scale: gl.getUniformLocation(program, "uScale"),
-      pixelRatio: gl.getUniformLocation(program, "uPixelRatio"),
-      relief: gl.getUniformLocation(program, "uRelief"),
-      pointSize: gl.getUniformLocation(program, "uPointSize"),
-    };
-
-    gl.clearColor(0, 0, 0, 1);
-    gl.enableVertexAttribArray(locations.point);
+    let lastFrameAt = 0;
 
     function iterationsAt(x, y) {
       let real = 0;
       let imaginary = 0;
       let iteration = 0;
+
       while (real * real + imaginary * imaginary < 4 && iteration < maxIterations) {
         const next = real * real - imaginary * imaginary + x / 400 - 1;
         imaginary = 2 * real * imaginary + y / 400;
         real = next;
         iteration += 1;
       }
+
       return iteration;
     }
 
     function buildPoints() {
-      const density = Math.max(180, Math.min(260, Math.round(Math.sqrt(width * height) / 2.5)));
-      const data = new Float32Array(density * density * 3);
+      const density = Math.max(170, Math.min(240, Math.round(Math.sqrt(width * height) / 2.7)));
       const step = 800 / density;
-      let index = 0;
+      const nextPoints = [];
 
       for (let row = 0; row < density; row += 1) {
         const y = -400 + row * step;
         for (let column = 0; column < density; column += 1) {
           const x = -400 + column * step;
-          data[index] = x;
-          data[index + 1] = y;
-          data[index + 2] = iterationsAt(x, y);
-          index += 3;
+          const iteration = iterationsAt(x, y);
+          if (iteration > 6) {
+            nextPoints.push({
+              x,
+              y,
+              iteration,
+              tone: Math.min(255, iteration),
+            });
+          }
         }
       }
 
-      pointCount = density * density;
-      if (!vertexBuffer) vertexBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
-      gl.vertexAttribPointer(locations.point, 3, gl.FLOAT, false, 0, 0);
+      // Точки рисуются от дальней части поверхности к ближней, как при глубинной отрисовке.
+      nextPoints.sort((left, right) => left.x + left.y - right.x - right.y);
+      points = nextPoints;
     }
 
     function resize() {
@@ -141,9 +87,9 @@
       height = Math.max(1, Math.round(bounds.height));
       canvas.width = Math.round(width * pixelRatio);
       canvas.height = Math.round(height * pixelRatio);
-      gl.viewport(0, 0, canvas.width, canvas.height);
+      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
 
-      // Максимальные границы изометрической сцены известны заранее, поэтому масштаб не дрожит.
+      // Это точные максимальные границы изометрической проекции при любой фазе анимации.
       const projectedWidth = 800 * 1.41421356;
       const projectedHeight = 800 * .81649658 + maxIterations * maxRelief * .81649658;
       const padding = Math.max(14, Math.min(width, height) * .045);
@@ -154,25 +100,34 @@
     function currentRelief() {
       if (paused) return pausedAt;
       const elapsed = (performance.now() - startedAt) / 1000;
-      // Плавный повторяемый ход высоты вместо бесконечного роста исходного k.
-      return maxRelief * (0.5 - 0.5 * Math.cos(elapsed * 0.36));
+      // Высота плавно и циклично меняется, вместо бесконечного роста исходного k.
+      return maxRelief * (0.5 - 0.5 * Math.cos(elapsed * .36));
     }
 
-    function draw() {
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.useProgram(program);
-      gl.uniform2f(locations.resolution, canvas.width, canvas.height);
-      gl.uniform1f(locations.scale, sceneScale);
-      gl.uniform1f(locations.pixelRatio, pixelRatio);
-      gl.uniform1f(locations.relief, currentRelief());
-      gl.uniform1f(locations.pointSize, Math.max(.75, Math.min(1.1, Math.min(width, height) / 720)));
-      gl.drawArrays(gl.POINTS, 0, pointCount);
-      requestAnimationFrame(draw);
+    function paint(now) {
+      requestAnimationFrame(paint);
+      if (now - lastFrameAt < frameInterval) return;
+      lastFrameAt = now;
+
+      const relief = currentRelief();
+      context.fillStyle = "#000";
+      context.fillRect(0, 0, width, height);
+      const dotSize = Math.max(.8, Math.min(1.35, Math.min(width, height) / 620));
+
+      for (const point of points) {
+        const projectedX = (point.x - point.y) * .70710678;
+        const projectedY = (point.x + point.y + point.iteration * relief * 2) * .40824829 - 188;
+        const x = width * .5 + projectedX * sceneScale;
+        const y = height * .5 + projectedY * sceneScale;
+        context.fillStyle = `rgb(${point.tone}, ${point.tone}, ${point.tone})`;
+        context.fillRect(x, y, dotSize, dotSize);
+      }
     }
 
     function togglePause() {
       if (paused) {
-        startedAt = performance.now() - Math.acos(1 - pausedAt / maxRelief * 2) / .36 * 1000;
+        const phase = Math.acos(Math.max(-1, Math.min(1, 1 - pausedAt / maxRelief * 2)));
+        startedAt = performance.now() - phase / .36 * 1000;
         paused = false;
       } else {
         pausedAt = currentRelief();
@@ -200,7 +155,7 @@
     window.addEventListener("orientationchange", resize);
 
     resize();
-    draw();
+    requestAnimationFrame(paint);
   </script>
 </body>
 </html>
