@@ -19,6 +19,7 @@
     .page-link, summary { display:block; padding:14px 16px; border-radius:10px; color:var(--text); text-decoration:none; background:var(--row); font-weight:600; }
     .page-link:hover,.page-link:focus-visible,summary:hover,summary:focus-visible { background:var(--hover); outline:none; }
     .page-link:focus-visible,summary:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+    @media (min-width:721px) { .page-link[aria-current="page"] { background:var(--hover); } }
     details { border-radius:10px; background:#181818; }
     summary { cursor:pointer; list-style:none; }
     summary::-webkit-details-marker { display:none; }
@@ -86,11 +87,19 @@
       empty.style.display = count ? "none" : "block";
     });
 
+    const setActiveLink = (selectedLink) => {
+      links.forEach((link) => link.removeAttribute("aria-current"));
+      selectedLink?.setAttribute("aria-current", "page");
+    };
+
+    setActiveLink(links.find((link) => link.getAttribute("href") === detail.getAttribute("src")));
+
     links.forEach((link) => link.addEventListener("click", (event) => {
       if (window.matchMedia("(min-width: 721px)").matches) {
         event.preventDefault();
         detail.src = link.href;
         detail.title = link.textContent;
+        setActiveLink(link);
       }
     }));
   </script>
