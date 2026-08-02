@@ -10,8 +10,8 @@
     * { box-sizing:border-box; }
     html,body { min-height:100%; background:var(--bg); }
     body { margin:0; color:var(--text); font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-    .app { min-height:100vh; max-width:1180px; margin:auto; display:grid; grid-template-columns:360px minmax(0,1fr); background:var(--bg); box-shadow:0 0 40px rgb(0 0 0 / .28); }
-    nav { min-height:100vh; padding:12px; overflow-y:auto; border-right:1px solid var(--line); background:var(--panel); }
+    .app { height:100vh; max-width:1180px; margin:auto; display:grid; grid-template-columns:360px minmax(0,1fr); background:var(--bg); box-shadow:0 0 40px rgb(0 0 0 / .28); }
+    nav { min-height:0; padding:12px; overflow-y:auto; border-right:1px solid var(--line); background:var(--panel); }
     .search { width:100%; height:42px; margin:0 0 12px; padding:0 14px; border:1px solid transparent; border-radius:10px; color:var(--text); background:#242424; font:inherit; }
     .search::placeholder { color:var(--muted); }
     .search:focus { border-color:#777; outline:2px solid var(--focus); outline-offset:1px; }
@@ -26,9 +26,9 @@
     details:not([open]) summary::after { transform:rotate(-90deg); }
     .group-pages { display:grid; gap:4px; padding:4px 0 0 12px; }
     .empty { display:none; margin:16px 4px; color:var(--muted); text-align:center; }
-    .main { min-width:0; min-height:100vh; background:var(--bg); }
+    .main { min-width:0; min-height:0; overflow:hidden; background:var(--bg); }
     iframe { width:100%; height:100vh; display:block; border:0; background:var(--bg); }
-    @media (max-width:720px) { .app { display:block; } nav { min-height:100vh; padding:calc(12px + env(safe-area-inset-top)) 12px 24px; border:0; } .main { display:none; } }
+    @media (max-width:720px) { .app { min-height:100vh; height:auto; display:block; } nav { min-height:100vh; padding:calc(12px + env(safe-area-inset-top)) 12px 24px; border:0; } .main { display:none; } }
   </style>
 </head>
 <body>
@@ -37,7 +37,7 @@
       <input class="search" id="search" type="search" autocomplete="off" aria-label="Поиск по страницам" placeholder="Поиск">
       <div class="pages">
         <a class="page-link" href="pages/test.html">Тестовая запись</a>
-        <details class="group" open data-name="p5.js">
+        <details class="group" data-name="p5.js">
           <summary>p5.js</summary>
           <div class="group-pages">
             <a class="page-link" href="pages/kinetic-form.html">Волновая хризантема</a>
